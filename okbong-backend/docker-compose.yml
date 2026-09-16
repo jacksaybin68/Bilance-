@@ -3,13 +3,27 @@ version: '3.9'
 services:
   api:
     build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
+      # docker/backend.Dockerfile copies from the repo root (okbong-backend/ and
+      # okbong-admin-frontend/), so the build context must be the repo root.
+      context: ..
+      dockerfile: okbong-backend/docker/backend.Dockerfile
       target: runtime
     ports:
-      - '3000:3000'
+      - '3001:3001'
     env_file:
       - .env.local
+    # Overrides .env.local. Two of these are load-bearing:
+    #  - POSTGRES_HOST must NOT be "localhost": app.module.ts only selects the
+    #    Postgres driver when this is set to something else, and Keploy can only
+    #    record/mock a database it can observe on the network (in-memory SQLite
+    #    is invisible to it, which would leave replay data-less).
+    #  - NODE_ENV must stay "development" so TypeORM `synchronize` creates the
+    #    schema; there are no migrations, so "production" leaves the DB empty.
+    environment:
+      PORT: '3001'
+      NODE_ENV: development
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -20,9 +34,13 @@ services:
       - okbong
 
   worker:
+    # NOTE: this service runs `node dist/worker.js`, but no src/worker.ts
+    # entrypoint exists in the repo, so the container crash-loops on start.
+    # Start the API explicitly — `docker compose up postgres redis api` —
+    # until a worker entrypoint is added.
     build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
+      context: ..
+      dockerfile: okbong-backend/docker/backend.Dockerfile
       target: runtime
     command: ['node', 'dist/worker.js']
     env_file:
