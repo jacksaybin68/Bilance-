@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsEnum,
   IsNumber,
@@ -10,6 +10,7 @@ import {
   Max,
   MaxLength,
 } from 'class-validator';
+import { roundAmount } from '../../common/utils/amount.util';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
 
 export enum BillStatus {
@@ -57,6 +58,12 @@ export class CreateBillDto {
 
   @ApiProperty({ example: 250000 })
   @Type(() => Number)
+  @Transform(({ value }) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return value;
+    const rounded = roundAmount(num);
+    return Math.abs(num - rounded) < 1e-7 ? rounded : num;
+  })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
   @Max(1_000_000_000)

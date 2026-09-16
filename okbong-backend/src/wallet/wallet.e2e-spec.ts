@@ -1,9 +1,12 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import request from 'supertest';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtStrategy } from '../auth/jwt.strategy';
 import { Role } from '../enumeration/role.enum';
 import { WalletType } from './dto/wallet.dto';
 import { WalletEntity, WalletStatus } from './entity/wallet.entity';
@@ -61,7 +64,12 @@ describe('Wallet E2E — Nạp/Rút', () => {
       }),
       create: vi.fn((dto: Partial<WalletEntity>) => ({ ...dto }) as WalletEntity),
       save: vi.fn(async (entity: WalletEntity) => {
-        const clone = { ...entity, id: entity.id ?? `uuid-${Date.now()}-${Math.random()}` } as WalletEntity;
+        const clone = {
+          ...entity,
+          id: entity.id ?? `uuid-${Date.now()}-${Math.random()}`,
+          createdAt: entity.createdAt ?? new Date(),
+          updatedAt: new Date(),
+        } as WalletEntity;
         store.set(keyOf(clone.userId, clone.type), clone);
         return clone;
       }),
@@ -73,7 +81,7 @@ describe('Wallet E2E — Nạp/Rút', () => {
         return all
           .filter((w) => !where?.userId || w.userId === where.userId)
           .filter((w) => !where?.type || w.type === where.type)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+          .sort((a, b) => (a.createdAt?.getTime?.() ?? 0) - (b.createdAt?.getTime?.() ?? 0));
       }),
       findOneBy: vi.fn(async ({ id }: { id: string }) => {
         const found = [...store.values()].find((w) => w.id === id);
@@ -136,9 +144,15 @@ describe('Wallet E2E — Nạp/Rút', () => {
 
     // App without guard override for 401 test
     const noAuthModule = await Test.createTestingModule({
+      imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [WalletController],
       providers: [
         WalletService,
+        JwtStrategy,
+        {
+          provide: ConfigService,
+          useValue: { get: (_key: string, def?: string) => def ?? 'okbong-secret-key' },
+        },
         { provide: getRepositoryToken(WalletEntity), useValue: walletRepo },
         { provide: DataSource, useValue: dataSource },
       ],
@@ -173,7 +187,12 @@ describe('Wallet E2E — Nạp/Rút', () => {
     });
     txRepo.create.mockImplementation((dto: Partial<WalletEntity>) => ({ ...dto }) as WalletEntity);
     txRepo.save.mockImplementation(async (entity: WalletEntity) => {
-      const clone = { ...entity, id: entity.id ?? `uuid-${Date.now()}-${Math.random()}` } as WalletEntity;
+      const clone = {
+        ...entity,
+        id: entity.id ?? `uuid-${Date.now()}-${Math.random()}`,
+        createdAt: entity.createdAt ?? new Date(),
+        updatedAt: new Date(),
+      } as WalletEntity;
       store.set(keyOf(clone.userId, clone.type), clone);
       return clone;
     });
@@ -182,7 +201,7 @@ describe('Wallet E2E — Nạp/Rút', () => {
       return all
         .filter((w) => !where?.userId || w.userId === where.userId)
         .filter((w) => !where?.type || w.type === where.type)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+        .sort((a, b) => (a.createdAt?.getTime?.() ?? 0) - (b.createdAt?.getTime?.() ?? 0));
     });
     walletRepo.findOneBy.mockImplementation(async ({ id }: { id: string }) => {
       const found = [...store.values()].find((w) => w.id === id);

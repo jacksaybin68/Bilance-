@@ -1,8 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { JwtStrategy } from '../auth/jwt.strategy';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Role } from '../enumeration/role.enum';
 import { BillStatus, BillType } from './dto/bill.dto';
@@ -159,9 +162,15 @@ beforeAll(async () => {
 
     // NoAuth app — real JwtAuthGuard without token -> 401
     const noAuthModule = await Test.createTestingModule({
+      imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [BillController],
       providers: [
         BillService,
+        JwtStrategy,
+        {
+          provide: ConfigService,
+          useValue: { get: (_key: string, def?: string) => def ?? 'okbong-secret-key' },
+        },
         { provide: getRepositoryToken(BillEntity), useValue: billRepoNoAuth },
         { provide: BillQueueService, useValue: mockBillQueueService },
       ],
