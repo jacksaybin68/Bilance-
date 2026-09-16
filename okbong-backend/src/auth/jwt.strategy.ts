@@ -8,7 +8,7 @@ import { AuthenticatedUser } from '../common/interfaces/authenticated-user.inter
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
-    const secret = configService.get<string>('JWT_SECRET', 'okbongsecret-key');
+    const secret = configService.get<string>('JWT_SECRET', 'okbong-secret-key');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

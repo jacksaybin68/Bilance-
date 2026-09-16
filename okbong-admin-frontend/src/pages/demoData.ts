@@ -124,6 +124,64 @@ export const DEMO_ACTIVITY: ActivityRow[] = [
   { id: 'act-004', user: 'admin', action: 'User Ban', details: 'Banned user johndoe', createdAt: '2026-01-12T09:30:00Z' },
 ];
 
+export interface TransactionRow {
+  id: string;
+  userId: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  currency: string;
+  method: string;
+  status: 'pending' | 'approved' | 'rejected' | 'processing';
+  note: string;
+  createdAt: string;
+}
+
+export interface PostRow {
+  id: string;
+  title: string;
+  category: 'news' | 'announcement' | 'promotion';
+  status: 'draft' | 'published' | 'archived';
+  author: string;
+  publishedAt: string | null;
+  createdAt: string;
+  content: string;
+}
+
+export interface CoinRow {
+  id: string;
+  symbol: string;
+  name: string;
+  priceUsd: number;
+  priceBdsd: number;
+  change24h: number;
+  status: 'active' | 'inactive' | 'delisted';
+  category: string;
+  updatedAt: string;
+}
+
+export const DEMO_TRANSACTIONS: TransactionRow[] = [
+  { id: 'txn-001', userId: 'usr-001', type: 'deposit', amount: 500, currency: 'BDSD', method: 'VCB Bank', status: 'pending', note: 'Nạp tiền qua VCB', createdAt: '2026-01-15T14:30:00Z' },
+  { id: 'txn-002', userId: 'usr-002', type: 'withdrawal', amount: 200, currency: 'BDSD', method: 'Momo', status: 'pending', note: 'Rút về Momo', createdAt: '2026-01-14T10:15:00Z' },
+  { id: 'txn-003', userId: 'usr-003', type: 'deposit', amount: 1000, currency: 'BDSD', method: 'Techcombank', status: 'approved', note: 'Nạp tiền TCB', createdAt: '2026-01-13T16:45:00Z' },
+  { id: 'txn-004', userId: 'usr-004', type: 'withdrawal', amount: 75, currency: 'USD', method: 'ACB Bank', status: 'rejected', note: 'Rút USD – từ chối do thiếu KYC', createdAt: '2026-01-12T09:30:00Z' },
+  { id: 'txn-005', userId: 'usr-001', type: 'deposit', amount: 250, currency: 'BDSD', method: 'ZaloPay', status: 'processing', note: 'Nạp ZaloPay đang xử lý', createdAt: '2026-01-11T08:00:00Z' },
+];
+
+export const DEMO_POSTS: PostRow[] = [
+  { id: 'post-001', title: 'Thông báo bảo trì hệ thống tháng 1', category: 'announcement', status: 'published', author: 'admin', publishedAt: '2026-01-14T08:00:00Z', createdAt: '2026-01-13T16:00:00Z', content: 'Hệ thống sẽ tạm ngừng từ 2:00 - 4:00 sáng ngày 20/1/2026 để nâng cấp.' },
+  { id: 'post-002', title: 'Khuyến mãi nạp tiền đầu năm 2026', category: 'promotion', status: 'published', author: 'moderator', publishedAt: '2026-01-10T09:00:00Z', createdAt: '2026-01-09T15:00:00Z', content: 'Nạp từ 500 BDSD tặng 50 BDSD bonus, áp dụng từ 1-31/1/2026.' },
+  { id: 'post-003', title: 'Ra mắt tính năng giao dịch nhanh', category: 'news', status: 'draft', author: 'admin', publishedAt: null, createdAt: '2026-01-15T10:00:00Z', content: 'Tính năng "giao dịch nhanh" cho phép xử lý lệnh trong vòng 5 giây.' },
+  { id: 'post-004', title: 'Cập nhật điều khoản sử dụng', category: 'announcement', status: 'archived', author: 'super_admin', publishedAt: '2025-12-01T00:00:00Z', createdAt: '2025-11-30T12:00:00Z', content: 'Điều khoản sử dụng phiên bản 2.0 chính thức có hiệu lực từ 1/12/2025.' },
+];
+
+export const DEMO_COINS: CoinRow[] = [
+  { id: 'coin-001', symbol: 'BDSD', name: 'BDSD Coin', priceUsd: 1.25, priceBdsd: 1, change24h: 2.5, status: 'active', category: 'stablecoin', updatedAt: '2026-01-15T14:00:00Z' },
+  { id: 'coin-002', symbol: 'BTC', name: 'Bitcoin', priceUsd: 45000, priceBdsd: 36000, change24h: -1.2, status: 'active', category: 'crypto', updatedAt: '2026-01-15T14:00:00Z' },
+  { id: 'coin-003', symbol: 'ETH', name: 'Ethereum', priceUsd: 2500, priceBdsd: 2000, change24h: 3.8, status: 'active', category: 'crypto', updatedAt: '2026-01-15T14:00:00Z' },
+  { id: 'coin-004', symbol: 'USDT', name: 'Tether', priceUsd: 1.0, priceBdsd: 0.8, change24h: 0.01, status: 'active', category: 'stablecoin', updatedAt: '2026-01-15T14:00:00Z' },
+  { id: 'coin-005', symbol: 'OKB', name: 'OKB Token', priceUsd: 0.5, priceBdsd: 0.4, change24h: -3.1, status: 'inactive', category: 'utility', updatedAt: '2026-01-14T10:00:00Z' },
+];
+
 export const DEMO_CRON_JOBS: CronJobRow[] = [
   { id: 'cron-001', name: 'Daily Price Update', type: 'price', status: 'running', lastRun: '2026-01-15T14:30:00Z', nextRun: '2026-01-15T15:00:00Z' },
   { id: 'cron-002', name: 'Weekly Report', type: 'report', status: 'completed', lastRun: '2026-01-08T00:00:00Z', nextRun: '2026-01-15T00:00:00Z' },

@@ -13,7 +13,6 @@ import {
   Res,
   UseGuards,
   forwardRef,
-  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -31,7 +30,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { Role } from '../enumeration/role.enum';
-import { CreateUserDto, LoginUserDto, UpdateUserDto, UserQueryDto } from './dto/user.dto';
+import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user.dto';
 import { UserEntity } from './entity/user.entity';
 import { UserService } from './user.service';
 
@@ -54,9 +53,8 @@ export class UserController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login (legacy alias of /auth/login)' })
-  async login(@Body() loginUserDto: LoginUserDto): Promise<AuthTokensDto> {
+  async login(@Body() loginUserDto: { email: string; password: string }): Promise<AuthTokensDto> {
     const user = await this.authService.validateUser(loginUserDto.email, loginUserDto.password);
-    if (!user) throw new UnauthorizedException('Invalid credentials');
     return this.authService.login(user);
   }
 

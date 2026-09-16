@@ -11,8 +11,11 @@ import {
 import type { Server, Socket } from 'socket.io';
 
 export interface PriceBroadcastPayload {
-  price: number;
+  symbol: string;
   currency: string;
+  price: number;
+  volume: number | null;
+  updatedAt?: Date;
 }
 
 @WebSocketGateway({ namespace: '/realtime', cors: { origin: '*' } })

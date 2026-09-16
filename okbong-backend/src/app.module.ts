@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -19,6 +21,12 @@ import { WalletModule } from './wallet/wallet.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
       cache: true,
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        { name: 'global', ttl: 60_000, limit: 60 },
+        { name: 'auth', ttl: 60_000, limit: 10 },
+      ],
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -61,6 +69,9 @@ import { WalletModule } from './wallet/wallet.module';
     RealtimeModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

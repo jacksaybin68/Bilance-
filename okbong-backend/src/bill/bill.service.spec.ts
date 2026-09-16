@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { roundAmount } from '../common/utils/amount.util';
+import { BillQueueService } from '../queue/index';
 import { BillStatus, BillType } from './dto/bill.dto';
 import { BillEntity } from './entity/bill.entity';
 import { BillService } from './bill.service';
@@ -49,7 +50,11 @@ describe('BillService', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [BillService, { provide: getRepositoryToken(BillEntity), useValue: billRepo }],
+      providers: [
+        BillService,
+        { provide: getRepositoryToken(BillEntity), useValue: billRepo },
+        { provide: BillQueueService, useValue: { onBillCreated: vi.fn().mockResolvedValue({ id: 'mock-job' }) } },
+      ],
     }).compile();
 
     service = module.get<BillService>(BillService);

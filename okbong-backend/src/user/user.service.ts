@@ -40,7 +40,7 @@ export class UserService {
       fullName: createUserDto.fullName ?? undefined,
       passwordHash: await hashPassword(createUserDto.password),
       role: createUserDto.role ?? Role.USER,
-      status: createUserDto.isActive ?? UserStatus.ACTIVE,
+      status: createUserDto.status ?? UserStatus.ACTIVE,
     });
 
     return this.userRepository.save(user);

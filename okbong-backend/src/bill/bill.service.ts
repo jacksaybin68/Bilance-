@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Role } from '../enumeration/role.enum';
+import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { roundAmount } from '../common/utils/amount.util';
+import { BillQueueService } from '../queue/index';
 import { BillQueryDto, BillStatus, BillType } from './dto/bill.dto';
 import { BillEntity } from './entity/bill.entity';
 
@@ -15,6 +18,7 @@ export class BillService {
   constructor(
     @InjectRepository(BillEntity)
     private readonly billRepository: Repository<BillEntity>,
+    private readonly billQueueService: BillQueueService,
   ) {}
 
   async findAll(query: BillQueryDto = {}): Promise<PaginatedResult<BillEntity>> {
@@ -42,6 +46,15 @@ export class BillService {
     return bill;
   }
 
+  async findOneForUser(id: string, user: AuthenticatedUser): Promise<BillEntity> {
+    const bill = await this.findOne(id);
+    const isAdmin = user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN;
+    if (!isAdmin && bill.userId !== user.id) {
+      throw new ForbiddenException('You can only access your own bills');
+    }
+    return bill;
+  }
+
   async create(dto: {
     userId: string;
     amount: number;
@@ -56,7 +69,17 @@ export class BillService {
       description: dto.description ?? null,
     });
 
-    return this.billRepository.save(bill);
+    const saved = await this.billRepository.save(bill);
+
+    await this.billQueueService.onBillCreated({
+      billId: saved.id,
+      userId: saved.userId,
+      type: saved.type,
+      amount: saved.amount,
+      description: saved.description,
+    });
+
+    return saved;
   }
 
   async update(

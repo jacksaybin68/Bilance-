@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalStrategy } from './local.strategy';
+import { TwoFactorService } from './two-factor.service';
 
 @Module({
   imports: [
@@ -18,12 +19,17 @@ import { LocalStrategy } from './local.strategy';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET', 'okbong-secret-key'),
-        signOptions: { expiresIn: 3600 },
+        signOptions: {
+          expiresIn: configService.get<string>('JWT_ACCESS_EXPIRES', '1h') as
+            | number
+            | `${number}`
+            | `${number} ${'s' | 'm' | 'h' | 'd' | 'w'}`,
+        },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy],
-  exports: [AuthService, JwtModule],
+  providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy, TwoFactorService],
+  exports: [AuthService, JwtModule, TwoFactorService],
 })
 export class AuthModule {}

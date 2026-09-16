@@ -16,6 +16,8 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', key: 'nav.dashboard' },
+  { href: '/market', key: 'nav.market' },
+  { href: '/wallet', key: 'nav.wallet' },
   { href: '/price', key: 'nav.price' },
   { href: '/bill', key: 'nav.bills' },
 ];

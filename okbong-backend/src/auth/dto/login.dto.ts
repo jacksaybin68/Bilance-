@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'user@okbong.com' })
@@ -15,9 +15,10 @@ export class LoginDto {
 }
 
 export class RefreshTokenDto {
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, description: 'Refresh JWT (also accepted as Bearer)' })
+  @IsOptional()
   @IsString()
-  refreshToken!: string;
+  refreshToken?: string;
 }
 
 export interface AuthTokensDto {

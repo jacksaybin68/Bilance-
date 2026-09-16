@@ -24,6 +24,32 @@ export enum BillType {
   CHARGING = 'charging',
 }
 
+export class CreateUserBillDto {
+  @ApiProperty({ example: 250000 })
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @IsPositive()
+  @Max(1_000_000_000)
+  amount!: number;
+
+  @ApiProperty({ enum: BillType })
+  @IsEnum(BillType)
+  type!: BillType;
+
+  @ApiPropertyOptional({ example: 'Electricity bill 09/2026' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  description?: string;
+
+  /** Alias accepted by the user app (`content` maps to `description`). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  content?: string;
+}
+
 export class CreateBillDto {
   @ApiProperty({ example: 'a1b2c3d4-0000-4000-8000-000000000000' })
   @IsUUID()

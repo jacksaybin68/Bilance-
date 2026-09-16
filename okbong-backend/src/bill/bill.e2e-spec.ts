@@ -9,6 +9,7 @@ import { BillStatus, BillType } from './dto/bill.dto';
 import { BillEntity } from './entity/bill.entity';
 import { BillController } from './bill.controller';
 import { BillService } from './bill.service';
+import { BillQueueService } from '../queue/index';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -77,7 +78,9 @@ describe('Bill E2E — Tạo & Duyệt lệnh', () => {
   let billRepoUser: MockBillRepo;
   let billRepoNoAuth: MockBillRepo;
 
-  beforeAll(async () => {
+  const mockBillQueueService = { onBillCreated: vi.fn().mockResolvedValue({ id: 'mock-job' }) };
+
+beforeAll(async () => {
     store = new Map<string, BillEntity>();
 
     // Each app gets its own repo mock but shares the same store
@@ -91,7 +94,11 @@ describe('Bill E2E — Tạo & Duyệt lệnh', () => {
     // Admin app — JwtAuthGuard injects admin, RolesGuard checks real role
     const adminModule = await Test.createTestingModule({
       controllers: [BillController],
-      providers: [BillService, { provide: getRepositoryToken(BillEntity), useValue: billRepoAdmin }],
+      providers: [
+        BillService,
+        { provide: getRepositoryToken(BillEntity), useValue: billRepoAdmin },
+        { provide: BillQueueService, useValue: mockBillQueueService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
@@ -122,7 +129,11 @@ describe('Bill E2E — Tạo & Duyệt lệnh', () => {
     // User app — normal USER should get 403 on all /bills endpoints
     const userModule = await Test.createTestingModule({
       controllers: [BillController],
-      providers: [BillService, { provide: getRepositoryToken(BillEntity), useValue: billRepoUser }],
+      providers: [
+        BillService,
+        { provide: getRepositoryToken(BillEntity), useValue: billRepoUser },
+        { provide: BillQueueService, useValue: mockBillQueueService },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({
@@ -149,7 +160,11 @@ describe('Bill E2E — Tạo & Duyệt lệnh', () => {
     // NoAuth app — real JwtAuthGuard without token -> 401
     const noAuthModule = await Test.createTestingModule({
       controllers: [BillController],
-      providers: [BillService, { provide: getRepositoryToken(BillEntity), useValue: billRepoNoAuth }],
+      providers: [
+        BillService,
+        { provide: getRepositoryToken(BillEntity), useValue: billRepoNoAuth },
+        { provide: BillQueueService, useValue: mockBillQueueService },
+      ],
     }).compile();
     appNoAuth = noAuthModule.createNestApplication();
     appNoAuth.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, validationError: { target: false, value: false } }));

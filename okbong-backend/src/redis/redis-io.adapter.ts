@@ -1,35 +1,33 @@
 import { INestApplication } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { createClient, type RedisClientType } from 'redis';
 import type { Server, ServerOptions } from 'socket.io';
+import { RedisService } from './redis.service';
 
 /** Socket.IO adapter that scales across instances via Redis pub/sub. */
 export class RedisIoAdapter extends IoAdapter {
-  private pubClient?: RedisClientType;
-  private subClient?: RedisClientType;
-  private readonly redisUrl: string | undefined;
+  private readonly redisService: RedisService;
 
   constructor(app: INestApplication) {
     super(app);
-    this.redisUrl = app.get(ConfigService, { strict: false }).get<string | undefined>('REDIS_URL');
+    this.redisService = app.get(RedisService);
   }
 
   async connectToRedis(): Promise<void> {
-    if (!this.redisUrl) return;
-
-    this.pubClient = createClient({ url: this.redisUrl });
-    this.subClient = this.pubClient.duplicate();
-
-    await Promise.all([this.pubClient.connect(), this.subClient.connect()]);
+    await this.redisService.ensureConnected();
   }
 
   override createIOServer(port: number, options?: ServerOptions): Server {
-    const server: Server = super.createIOServer(port, options) as Server;
+    const server = super.createIOServer(port, options) as Server;
 
-    if (this.pubClient && this.subClient) {
-      server.adapter(createAdapter(this.pubClient, this.subClient));
+    const pubClient = this.redisService.getPubClient();
+    const subClient = this.redisService.getSubClient();
+
+    if (pubClient && subClient) {
+      server.adapter(createAdapter(pubClient, subClient));
+      this.logger.log('Socket.IO using Redis adapter');
+    } else {
+      this.logger.log('Socket.IO in-memory adapter (Redis unavailable)');
     }
 
     return server;

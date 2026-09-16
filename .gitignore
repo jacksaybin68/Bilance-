@@ -1,1 +1,10 @@
 .aider*
+
+# local artifacts (not committed)
+node_modules/
+dist/
+.next/
+.env
+.env.*
+!.env.example
+*.tsbuildinfo

@@ -1,18 +1,25 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
-@Entity()
+@Entity('price_history')
+@Index(['symbol', 'recordedAt'])
 export class PriceHistoryEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column()
+  @Column({ type: 'varchar', length: 20 })
   symbol!: string;
 
-  @Column()
+  @Column({ type: 'float' })
   price!: number;
 
   @Column({ type: 'float', nullable: true })
-  volume?: number;
+  volume?: number | null;
 
   @CreateDateColumn()
   recordedAt!: Date;

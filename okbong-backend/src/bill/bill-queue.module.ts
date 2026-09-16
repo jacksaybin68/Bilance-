@@ -1,10 +1,12 @@
-import { Module, forwardRef } from '@nestjs/common';
-import { QueueModule } from '../queue/queue.module';
-import { QueueService } from '../queue/queue.service';
+import { Module } from '@nestjs/common';
+import { QueueModule } from '../queue/index';
 
+/**
+ * Convenience wrapper: re-exports the shared queue providers (QueueService,
+ * BillQueueService) so a consumer only needs to import this one module.
+ */
 @Module({
-  imports: [forwardRef(() => QueueModule)],
-  providers: [QueueService],
-  exports: [QueueService],
+  imports: [QueueModule],
+  exports: [QueueModule],
 })
 export class BillQueueModule {}
