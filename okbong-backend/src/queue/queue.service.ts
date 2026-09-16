@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker, type Job } from 'bullmq';
 import { RedisService } from '../redis/redis.service';
+import { DeadLetterQueueService } from './dead-letter-queue.service';
 
 export type JobHandler = (payload: Record<string, unknown>) => void | Promise<void>;
 
@@ -29,6 +30,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly config: ConfigService,
     private readonly redisService: RedisService,
+    private readonly dlqService: DeadLetterQueueService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -54,8 +56,14 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
             },
             { connection, concurrency: 5 },
           );
-          this.worker.on('failed', (job, err) => {
+          this.worker.on('failed', async (job, err) => {
             this.logger.error(`job '${job?.name}' (${job?.id}) failed: ${err.message}`);
+            await this.dlqService.forwardFailedJob(
+              String(job?.id ?? 'unknown'),
+              job?.name ?? 'unknown',
+              job?.data as Record<string, unknown> ?? {},
+              err as Error,
+            );
           });
           this.worker.on('error', (err) => {
             this.logger.error(`worker error: ${err.message}`);

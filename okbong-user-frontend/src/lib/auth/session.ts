@@ -67,3 +67,8 @@ export function clearSession(): void {
 export function isAuthenticated(): boolean {
   return tokenStore.getAccessToken() !== null;
 }
+
+/** Returns the persisted user profile (if any) for UI display purposes. */
+export function getStoredUser(): User | null {
+  return readSession()?.user ?? null;
+}

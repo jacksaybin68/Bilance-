@@ -50,24 +50,33 @@ export class AuthService {
 
   /**
    * Bước 1: Tạo secret và trả về QR code URL để người dùng quét.
-   * Secret được trả về nhưng CHƯA được lưu vào DB cho đến khi người dùng verify.
+   * Secret được lưu tạm vào User entity (twoFactorSecret) nhưng
+   * twoFactorEnabled vẫn=false cho đến khi người dùng verify thành công.
    */
   async setup2FA(userId: string, email: string) {
     const secret = this.twoFactorService.generateSecret();
     const otpauthUrl = this.twoFactorService.buildOtpauthUrl(secret, email);
-    // TODO: Lưu secret tạm thời vào cache/session hoặc trường `twoFactorTempSecret` trong User entity
-    // Ví dụ: await this.userService.saveTempTwoFactorSecret(userId, secret);
+    await this.userService.saveTempTwoFactorSecret(userId, secret);
     return { secret, otpauthUrl };
   }
 
   /**
    * Bước 2: Người dùng nhập mã từ app Authenticator để kích hoạt 2FA.
-   * Sau khi verify thành công, lưu secret vào DB và bật cờ twoFactorEnabled.
+   * Ưu tiên secret đã lưu tạm trong DB; nếu chưa có thì dùng secret gửi kèm.
    */
-  async enable2FA(userId: string, token: string, secret: string): Promise<{ message: string }> {
-    const isValid = this.twoFactorService.verifyToken(token, secret);
+  async enable2FA(userId: string, token: string, secret?: string): Promise<{ message: string }> {
+    const user = await this.userService.findOne(userId);
+    if (user.twoFactorEnabled) {
+      throw new BadRequestException('2FA đã được kích hoạt trước đó');
+    }
+
+    const storedSecret = user.twoFactorSecret ?? secret;
+    if (!storedSecret) throw new BadRequestException('Chưa thực hiện bước setup 2FA');
+
+    const isValid = this.twoFactorService.verifyToken(token, storedSecret);
     if (!isValid) throw new BadRequestException('Mã 2FA không hợp lệ hoặc đã hết hạn');
-    // TODO: await this.userService.enableTwoFactor(userId, secret);
+
+    await this.userService.enableTwoFactor(userId, storedSecret);
     return { message: '2FA đã được kích hoạt thành công' };
   }
 
@@ -75,22 +84,30 @@ export class AuthService {
    * Xác thực mã TOTP khi đăng nhập (dùng sau bước login thường).
    */
   async verify2FA(userId: string, token: string): Promise<{ verified: boolean }> {
-    // TODO: const user = await this.userService.findById(userId);
-    // const secret = user.twoFactorSecret;
-    // Tạm thời throw để nhắc tích hợp User entity
-    throw new BadRequestException(
-      'Cần tích hợp User entity: thêm trường twoFactorSecret và twoFactorEnabled',
-    );
+    const user = await this.userService.findOne(userId);
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Tài khoản chưa kích hoạt 2FA');
+    }
+
+    const isValid = this.twoFactorService.verifyToken(token, user.twoFactorSecret);
+    if (!isValid) throw new BadRequestException('Mã 2FA không hợp lệ hoặc đã hết hạn');
+
+    return { verified: true };
   }
 
   /**
    * Tắt 2FA cho người dùng sau khi xác thực mã lần cuối.
    */
   async disable2FA(userId: string, token: string): Promise<{ message: string }> {
-    // TODO: const user = await this.userService.findById(userId);
-    // const isValid = this.twoFactorService.verifyToken(token, user.twoFactorSecret);
-    // if (!isValid) throw new BadRequestException('Mã 2FA không hợp lệ');
-    // await this.userService.disableTwoFactor(userId);
+    const user = await this.userService.findOne(userId);
+    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new BadRequestException('Tài khoản chưa kích hoạt 2FA');
+    }
+
+    const isValid = this.twoFactorService.verifyToken(token, user.twoFactorSecret);
+    if (!isValid) throw new BadRequestException('Mã 2FA không hợp lệ');
+
+    await this.userService.disableTwoFactor(userId);
     return { message: '2FA đã được tắt thành công' };
   }
 

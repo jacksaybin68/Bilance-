@@ -14,6 +14,8 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { RedisModule } from './redis/redis.module';
 import { UserModule } from './user/user.module';
 import { WalletModule } from './wallet/wallet.module';
+import { KYCModule } from './kyc/kyc.module';
+import { DeadLetterQueueModule } from './queue/dead-letter-queue.module';
 
 @Module({
   imports: [
@@ -67,6 +69,8 @@ import { WalletModule } from './wallet/wallet.module';
     QueueModule,
     RedisModule,
     RealtimeModule,
+    KYCModule,
+    DeadLetterQueueModule,
   ],
   controllers: [AppController],
   providers: [

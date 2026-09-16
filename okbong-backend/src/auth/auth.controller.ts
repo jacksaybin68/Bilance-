@@ -119,5 +119,23 @@ export class AuthController {
   ): Promise<{ verified: boolean }> {
     return this.authService.verify2FA(user.id, dto.token);
   }
+
+  /**
+   * Tắt 2FA sau khi xác thực mã TOTP lần cuối.
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tắt 2FA sau khi xác thực mã TOTP' })
+  @ApiBody({ type: TwoFactorVerifyDto })
+  @ApiOkResponse({ description: 'Xác nhận 2FA đã được tắt' })
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  disable2FA(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: TwoFactorVerifyDto,
+  ): Promise<{ message: string }> {
+    return this.authService.disable2FA(user.id, dto.token);
+  }
 }
 

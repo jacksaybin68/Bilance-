@@ -5,8 +5,8 @@ import { Footer } from '@/components/footer/Footer';
 import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
-  title: 'Billdayroi - OKBong',
-  description: 'Tạo và quản lý hoá đơn của bạn trong vài giây.',
+  title: 'OKX - Sàn giao dịch P2P & Mua Bán Crypto Nhanh Chóng',
+  description: 'Giao dịch mua bán Bitcoin, USDT, Ethereum và các loại tiền mã hoá nhanh chóng với VND. Khớp giá tốt nhất tự động, 0% phí giao dịch.',
 };
 
 /** Applies the persisted theme before paint so there is no light/dark flash. */

@@ -93,4 +93,30 @@ export class UserService {
 
     return this.userRepository.save(user);
   }
+
+  // ─── Two-Factor Authentication helpers ───────────────────────────────────
+
+  /** Lưu secret TOTP tạm thời (chưa bật 2FA cho đến khi người dùng verify). */
+  async saveTempTwoFactorSecret(userId: string, secret: string): Promise<void> {
+    const user = await this.findOne(userId);
+    user.twoFactorSecret = secret;
+    user.twoFactorEnabled = false;
+    await this.userRepository.save(user);
+  }
+
+  /** Bật 2FA sau khi mã TOTP đã được xác thực thành công. */
+  async enableTwoFactor(userId: string, secret: string): Promise<UserEntity> {
+    const user = await this.findOne(userId);
+    user.twoFactorSecret = secret;
+    user.twoFactorEnabled = true;
+    return this.userRepository.save(user);
+  }
+
+  /** Tắt 2FA và xoá secret khỏi DB. */
+  async disableTwoFactor(userId: string): Promise<UserEntity> {
+    const user = await this.findOne(userId);
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    return this.userRepository.save(user);
+  }
 }

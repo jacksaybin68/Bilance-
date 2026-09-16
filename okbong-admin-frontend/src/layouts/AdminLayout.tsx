@@ -22,6 +22,7 @@ import { clearSession, readSession } from '@/lib/auth/session';
 import { useI18n } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { useThemeMode } from '@/lib/theme';
+import { AdminErrorBoundary } from '@/components/AdminErrorBoundary';
 
 const { Sider, Content, Header } = Layout;
 
@@ -129,7 +130,9 @@ export function AdminLayout() {
         </Header>
 
         <Content className="p-4 sm:p-6">
-          <Outlet />
+          <AdminErrorBoundary>
+            <Outlet />
+          </AdminErrorBoundary>
         </Content>
       </Layout>
     </Layout>

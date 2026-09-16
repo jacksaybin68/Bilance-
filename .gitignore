@@ -10,3 +10,7 @@ dist/
 *.tsbuildinfo
 AGENTS.md
 CLAUDE.md
+
+# OS junk
+.DS_Store
+
