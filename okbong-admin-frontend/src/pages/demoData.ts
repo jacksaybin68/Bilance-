@@ -110,8 +110,8 @@ export const DEMO_PLANS: PlanRow[] = [
 ];
 
 export const DEMO_SETTINGS: SettingRow[] = [
-  { id: 'set-001', key: 'system_name', label: 'System Name', value: 'OKBong' },
-  { id: 'set-002', key: 'support_email', label: 'Support Email', value: 'support@okbong.com' },
+  { id: 'set-001', key: 'system_name', label: 'System Name', value: 'NexTrading' },
+  { id: 'set-002', key: 'support_email', label: 'Support Email', value: 'support@nextrading.com' },
   { id: 'set-003', key: 'maintenance_mode', label: 'Maintenance Mode', value: false },
   { id: 'set-004', key: 'email_notifications', label: 'Email Notifications', value: true },
   { id: 'set-005', key: 'default_currency', label: 'Default Currency', value: 'BDSD' },

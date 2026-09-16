@@ -18,9 +18,13 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
-import { AuthService } from './auth.service';
+import { AuthService, LoginResult, TwoFaChallengeResult } from './auth.service';
 import { AuthTokensDto, LoginDto, RefreshTokenDto } from './dto/login.dto';
-import { TwoFactorSetupResponseDto, TwoFactorVerifyDto } from './dto/two-factor.dto';
+import { TwoFactorCompleteDto } from './dto/two-factor.dto';
+import {
+  TwoFactorSetupResponseDto,
+  TwoFactorVerifyDto,
+} from './dto/two-factor.dto';
 import { JwtAuthGuard, RefreshTokenGuard } from './jwt-auth.guard';
 import { LocalAuthGuard } from './local-auth.guard';
 
@@ -29,16 +33,63 @@ import { LocalAuthGuard } from './local-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // ─── Login (có hỗ trợ 2FA challenge) ─────────────────────────────────────
+
+  /**
+   * POST /auth/login
+   *
+   * Đăng nhập cơ bản: nếu tài khoản không kích hoạt 2FA → trả token ngay.
+   * Nếu tài khoản có 2FA (đã kích hoạt HOẶC pending setup) → trả
+   *   { requires2FA: true, sessionId: "...", pendingSetup: true/false }
+   * Client gửi POST /auth/2fa/verify với TwoFactorCompleteDto
+   *   { sessionId, token } để hoàn tất.
+   */
   @UseGuards(LocalAuthGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đổi thông tin đăng nhập lấy cặp token' })
+  @ApiOperation({ summary: 'Đăng nhập — trả token hoặc yêu cầu 2FA' })
   @ApiBody({ type: LoginDto })
-  @ApiOkResponse({ description: 'accessToken + refreshToken + expiresIn' })
+  @ApiOkResponse({
+    description: 'Trả token khi không cần 2FA; ngược lại trả requires2FA + sessionId',
+    content: {
+      'application/json': {
+        schema: {
+          oneOf: [
+            { $ref: '#/components/schemas/AuthTokensDto' },
+            {
+              type: 'object',
+              properties: {
+                requires2FA: { type: 'boolean', example: true },
+                sessionId: { type: 'string', example: 'otp-1726030400000-abc123' },
+                pendingSetup: { type: 'boolean', example: false },
+              },
+            },
+          ],
+        },
+      },
+    },
+  })
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  login(@CurrentUser() user: AuthenticatedUser): Promise<AuthTokensDto> {
+  async login(
+    @CurrentUser()
+    user: AuthenticatedUser & {
+      requires2FA: boolean;
+      pendingSetup: boolean;
+      sessionId: string | null;
+    },
+  ): Promise<AuthTokensDto | TwoFaChallengeResult> {
+    // Nếu user yêu cầu 2FA → trả sessionId + cờ requires2FA + pendingSetup
+    if (user.requires2FA) {
+      return {
+        requires2FA: true,
+        sessionId: user.sessionId!,
+        pendingSetup: user.pendingSetup,
+      } as TwoFaChallengeResult;
+    }
     return this.authService.login(user);
   }
+
+  // ─── Token refresh ──────────────────────────────────────────────────────
 
   @UseGuards(RefreshTokenGuard)
   @Post('refresh')
@@ -50,6 +101,8 @@ export class AuthController {
     return this.authService.refreshToken(user);
   }
 
+  // ─── Profile ──────────────────────────────────────────────────────────────
+
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   @ApiBearerAuth()
@@ -58,11 +111,13 @@ export class AuthController {
     return user;
   }
 
-  // ─── Two-Factor Authentication ───────────────────────────────────────────
+  // ─── Two-Factor Authentication ────────────────────────────────────────────
 
   /**
-   * Bước 1: Tạo secret TOTP và trả QR code URL.
+   * Bước 1 (tùy chọn, cho người dùng đã login): Tạo secret TOTP và trả QR code URL.
    * Người dùng quét QR bằng Google Authenticator / Authy.
+   *
+   * Sau khi quét, gọi POST /auth/2fa/enable để kích hoạt.
    */
   @UseGuards(JwtAuthGuard)
   @Post('2fa/setup')
@@ -75,8 +130,10 @@ export class AuthController {
   }
 
   /**
-   * Bước 2: Xác nhận mã từ Authenticator để kích hoạt 2FA.
+   * Bước 2 (tùy chọn): Xác nhận mã từ Authenticator để kích hoạt 2FA.
    * Body: { token: "123456", secret: "BASE32SECRET" }
+   *
+   * Secret có thể gửi kèm (nếu client lưu) hoặc dùng secret đã lưu trong DB từ bước setup.
    */
   @UseGuards(JwtAuthGuard)
   @Post('2fa/enable')
@@ -87,9 +144,9 @@ export class AuthController {
     schema: {
       properties: {
         token: { type: 'string', example: '123456', description: 'Mã 6 chữ số từ app' },
-        secret: { type: 'string', description: 'Secret nhận được từ bước setup' },
+        secret: { type: 'string', description: 'Secret nhận được từ bước setup (không bắt buộc nếu đã lưu)' },
       },
-      required: ['token', 'secret'],
+      required: ['token'],
     },
   })
   @ApiOkResponse({ description: 'Xác nhận 2FA đã được bật' })
@@ -97,31 +154,55 @@ export class AuthController {
   enable2FA(
     @CurrentUser() user: AuthenticatedUser,
     @Body('token') token: string,
-    @Body('secret') secret: string,
+    @Body('secret') secret?: string,
   ): Promise<{ message: string }> {
     return this.authService.enable2FA(user.id, token, secret);
   }
 
   /**
-   * Xác thực mã TOTP (dùng sau login khi tài khoản đã bật 2FA).
+   * Xác thực mã TOTP khi đăng nhập (dùng sau login khi requires2FA=true).
+   *
+   * POST /auth/2fa/verify
+   * Body: { sessionId: "...", token: "123456" }  (TwoFactorCompleteDto)
+   *
+   * Không cần JWT — sessionId là cách xác thực duy nhất ở bước này.
+   * Nếu token đúng và session hợp lệ → trả accessToken + refreshToken.
+   * Nếu user đang pending setup → tự động kích hoạt 2FA.
    */
-  @UseGuards(JwtAuthGuard)
   @Post('2fa/verify')
   @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Xác thực mã TOTP khi đăng nhập 2FA' })
-  @ApiBody({ type: TwoFactorVerifyDto })
-  @ApiOkResponse({ description: '{ verified: true }' })
+  @ApiOperation({ summary: 'Hoàn tất đăng nhập 2FA — gửi sessionId + mã TOTP' })
+  @ApiBody({ type: TwoFactorCompleteDto })
+  @ApiOkResponse({
+    description: 'Trả accessToken + refreshToken khi xác thực thành công',
+    content: {
+      'application/json': {
+        schema: {
+          allOf: [
+            { $ref: '#/components/schemas/AuthTokensDto' },
+            {
+              type: 'object',
+              properties: {
+                twoFactorEnabled: { type: 'boolean', example: true },
+                pendingSetupResolved: { type: 'boolean', example: false },
+              },
+            },
+          ],
+        },
+      },
+    },
+  })
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  verify2FA(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: TwoFactorVerifyDto,
-  ): Promise<{ verified: boolean }> {
-    return this.authService.verify2FA(user.id, dto.token);
+  async verify2FA(
+    @Body('sessionId') sessionId: string,
+    @Body('token') token: string,
+  ): Promise<LoginResult & { twoFactorEnabled: boolean; pendingSetupResolved: boolean }> {
+    return this.authService.verify2FA(sessionId, token);
   }
 
   /**
    * Tắt 2FA sau khi xác thực mã TOTP lần cuối.
+   * Yêu cầu JWT (đã login) + mã TOTP hiện tại.
    */
   @UseGuards(JwtAuthGuard)
   @Post('2fa/disable')
@@ -138,4 +219,3 @@ export class AuthController {
     return this.authService.disable2FA(user.id, dto.token);
   }
 }
-

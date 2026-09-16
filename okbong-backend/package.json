@@ -1,7 +1,7 @@
 {
   "name": "okbong-backend",
   "version": "1.0.0",
-  "description": "OKBong backend — NestJS API with WebSocket (Socket.IO), BullMQ queue, Redis adapter.",
+  "description": "NexTrading backend — NestJS API with WebSocket (Socket.IO), BullMQ queue, Redis adapter.",
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
@@ -12,7 +12,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --passWithNoTests",
     "test:e2e": "vitest run --config vitest.config.e2e.ts --passWithNoTests",
-    "test:coverage": "vitest run --coverage --passWithNoTests"
+    "test:coverage": "vitest run --coverage --passWithNoTests",
+    "seed": "ts-node-dev --transpile-only src/seed.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
+import { PaymentWebhookPayload } from './payment/payment-webhook.controller';
 
 export interface AppInfo {
   name: string;
@@ -24,7 +26,7 @@ export class AppService {
 
   getInfo(): AppInfo {
     return {
-      name: 'OKBong API',
+      name: 'NexTrading API',
       version: this.configService.get<string>('APP_VERSION', '1.0'),
       environment: this.configService.get<string>('NODE_ENV', 'development'),
       uptime: this.uptimeInSeconds(),
@@ -43,5 +45,19 @@ export class AppService {
 
   private uptimeInSeconds(): number {
     return Math.floor((Date.now() - this.startedAt) / 1000);
+  }
+
+  computeWebhookSignature(payload: PaymentWebhookPayload, secret: string): string {
+    const data = JSON.stringify(payload);
+    return createHash('sha256').update(`${data}${secret}`).digest('hex');
+  }
+
+  logWebhookNoBillId(payload: PaymentWebhookPayload): void {
+    console.warn('[webhook] No billId', {
+      externalId: payload.externalId,
+      amount: payload.amount,
+      status: payload.status,
+      timestamp: payload.timestamp,
+    });
   }
 }

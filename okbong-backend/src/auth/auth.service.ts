@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from '../enumeration/role.enum';
 import { UserService } from '../user/user.service';
 import { TwoFactorService } from './two-factor.service';
+import { OTPSessionService } from './otp-session.service';
 
 export interface TokenUser {
   id: string;
@@ -11,24 +12,55 @@ export interface TokenUser {
   role: Role;
 }
 
+export interface LoginResult {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
+export interface TwoFaChallengeResult {
+  requires2FA: boolean;
+  sessionId: string;
+  pendingSetup: boolean;
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly twoFactorService: TwoFactorService,
+    private readonly otpSessionService: OTPSessionService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<TokenUser> {
+  async validateUser(email: string, password: string): Promise<
+    TokenUser & { requires2FA: boolean; pendingSetup: boolean; sessionId: string | null }
+  > {
     const user = await this.userService.findByEmailWithPassword(email);
     if (!user) throw new UnauthorizedException('Invalid credentials');
     const isValid = await user.comparePassword(password);
     if (!isValid) throw new UnauthorizedException('Invalid credentials');
-    return { id: user.id, email: user.email, role: user.role };
+
+    // 2FA required khi đã kích hoạt HOẶC đang trong giai đoạn pending setup
+    // (có twoFactorSecret nhưng twoFactorEnabled=false)
+    const requires2FA = Boolean(user.twoFactorEnabled || user.twoFactorSecret);
+    const pendingSetup = Boolean(user.twoFactorSecret && !user.twoFactorEnabled);
+
+    if (!requires2FA) {
+      return { id: user.id, email: user.email, role: user.role, requires2FA: false, pendingSetup: false, sessionId: null };
+    }
+
+    // Tạo session OTP tạm (TTL 5 phút) để client dùng ở bước 2FA/verify
+    const sessionId = this.otpSessionService.createSession(user.id, user.email);
+    this.logger.log(`2FA challenge issued for user ${user.id} (pendingSetup=${pendingSetup})`);
+
+    return { id: user.id, email: user.email, role: user.role, requires2FA: true, pendingSetup, sessionId };
   }
 
-  async login(user: TokenUser) {
+  async login(user: TokenUser): Promise<LoginResult> {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
       accessToken: this.jwtService.sign(payload),
@@ -37,7 +69,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(user: TokenUser) {
+  async refreshToken(user: TokenUser): Promise<LoginResult> {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
       accessToken: this.jwtService.sign(payload),
@@ -53,7 +85,7 @@ export class AuthService {
    * Secret được lưu tạm vào User entity (twoFactorSecret) nhưng
    * twoFactorEnabled vẫn=false cho đến khi người dùng verify thành công.
    */
-  async setup2FA(userId: string, email: string) {
+  async setup2FA(userId: string, email: string): Promise<{ secret: string; otpauthUrl: string }> {
     const secret = this.twoFactorService.generateSecret();
     const otpauthUrl = this.twoFactorService.buildOtpauthUrl(secret, email);
     await this.userService.saveTempTwoFactorSecret(userId, secret);
@@ -81,18 +113,49 @@ export class AuthService {
   }
 
   /**
-   * Xác thực mã TOTP khi đăng nhập (dùng sau bước login thường).
+   * Xác thực mã TOTP khi đăng nhập (dùng sau bước login khi requires2FA=true).
+   * - Kiểm tra session OTP tồn tại và chưa hết hạn
+   * - Nếu user đang pending setup → tự động kích hoạt 2FA sau khi TOTP hợp lệ
+   * - Trả accessToken + refreshToken khi xác thực thành công
    */
-  async verify2FA(userId: string, token: string): Promise<{ verified: boolean }> {
-    const user = await this.userService.findOne(userId);
-    if (!user.twoFactorEnabled || !user.twoFactorSecret) {
-      throw new BadRequestException('Tài khoản chưa kích hoạt 2FA');
+  async verify2FA(
+    sessionId: string,
+    token: string,
+  ): Promise<LoginResult & { twoFactorEnabled: boolean; pendingSetupResolved: boolean }> {
+    // 1. Kiểm tra session OTP
+    const session = this.otpSessionService.getSession(sessionId);
+    if (!session) {
+      throw new BadRequestException('Phiên 2FA không tồn tại hoặc đã hết hạn. Vui lòng đăng nhập lại.');
     }
 
+    const user = await this.userService.findOne(session.userId);
+    if (!user.twoFactorSecret) {
+      throw new BadRequestException('Tài khoản chưa cấu hình 2FA');
+    }
+
+    // 2. Xác thực TOTP
     const isValid = this.twoFactorService.verifyToken(token, user.twoFactorSecret);
     if (!isValid) throw new BadRequestException('Mã 2FA không hợp lệ hoặc đã hết hạn');
 
-    return { verified: true };
+    // 3. Nếu pending setup → tự động kích hoạt 2FA
+    let pendingSetupResolved = false;
+    if (user.twoFactorEnabled === false && user.twoFactorSecret) {
+      await this.userService.enableTwoFactor(session.userId, user.twoFactorSecret);
+      pendingSetupResolved = true;
+      this.logger.log(`Auto-enabled 2FA for user ${session.userId} after successful verify`);
+    }
+
+    // 4. Xóa session OTP, issue token
+    this.otpSessionService.deleteSession(sessionId);
+
+    const payload = { email: user.email, sub: user.id, role: user.role };
+    return {
+      accessToken: this.jwtService.sign(payload),
+      refreshToken: this.signRefreshToken(payload),
+      expiresIn: this.configService.get<string>('JWT_ACCESS_EXPIRES', '1h'),
+      twoFactorEnabled: true,
+      pendingSetupResolved,
+    };
   }
 
   /**
@@ -122,4 +185,3 @@ export class AuthService {
     return this.jwtService.sign(payload, { secret, expiresIn });
   }
 }
-

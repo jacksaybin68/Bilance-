@@ -5,7 +5,7 @@ import { Footer } from '@/components/footer/Footer';
 import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
-  title: 'OKX - Sàn giao dịch P2P & Mua Bán Crypto Nhanh Chóng',
+  title: 'NexTrading - Sàn giao dịch P2P & Mua Bán Crypto Nhanh Chóng',
   description: 'Giao dịch mua bán Bitcoin, USDT, Ethereum và các loại tiền mã hoá nhanh chóng với VND. Khớp giá tốt nhất tự động, 0% phí giao dịch.',
 };
 
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
-      <body className="flex min-h-screen flex-col bg-gray-50 text-gray-900 antialiased transition-colors dark:bg-gray-900 dark:text-gray-100">
+      <body className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text-primary)] antialiased transition-colors duration-250 dark:bg-[var(--bg-page)] dark:text-[var(--text-primary)]">
         <I18nProvider>
           <Navbar />
           <main className="flex-1 pt-6">{children}</main>

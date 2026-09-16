@@ -10,7 +10,7 @@ import { formatCurrency } from '@/lib/format';
 import { useI18n } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { toFiniteNumber } from '@/lib/parsers';
-import type { Wallet, WalletStatus, WalletType } from '@/types/api';
+import type { Wallet, WalletStatus, WalletType, Transaction } from '@/types/api';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type WalletAction = 'deposit' | 'withdraw';
@@ -50,7 +50,15 @@ export default function WalletPage() {
     setErrorMessage('');
 
     try {
-      setWallets(await walletApi.listMine());
+      const wallets = await walletApi.listMine();
+      setWallets(wallets);
+      setTransactionErrors((prev) => {
+        const updated = new Map(prev);
+        for (const wallet of wallets) {
+          updated.set(wallet.id, undefined);
+        }
+        return updated;
+      });
       setState('ready');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('wallet.error')));
@@ -112,8 +120,11 @@ export default function WalletPage() {
         {t('wallet.title')}
       </h1>
 
-      <Alert variant="success" message={notice} className="mb-4" />
-      <Alert variant="error" message={errorMessage} className="mb-4 flex flex-wrap items-center gap-3" />
+      <Alert
+        variant="error"
+        message={errorMessage}
+        className="mb-4 flex flex-wrap items-center gap-3"
+      />
 
       {state === 'loading' ? (
         <Spinner label={t('common.loading')} />
@@ -127,6 +138,10 @@ export default function WalletPage() {
             >
               {t('common.retry')}
             </button>
+          ) : null}
+
+          {notice ? (
+            <Alert variant="success" message={notice} className="mb-4" />
           ) : null}
 
           {wallets.length === 0 ? (

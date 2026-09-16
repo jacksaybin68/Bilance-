@@ -93,7 +93,7 @@ export class TwoFactorService {
    * @param email   Email định danh tài khoản
    * @param issuer  Tên ứng dụng (hiển thị trong app Authenticator)
    */
-  buildOtpauthUrl(secret: string, email: string, issuer = 'OKBong'): string {
+  buildOtpauthUrl(secret: string, email: string, issuer = 'NexTrading'): string {
     const label = encodeURIComponent(`${issuer}:${email}`);
     const params = new URLSearchParams({
       secret,

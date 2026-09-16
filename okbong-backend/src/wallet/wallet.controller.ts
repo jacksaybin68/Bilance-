@@ -1,20 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { DepositDto, WalletQueryDto, WalletType, WithdrawDto } from './dto/wallet.dto';
+import { TransactionQueryDto } from './dto/transaction.dto';
 import { WalletEntity } from './entity/wallet.entity';
 import { WalletService } from './wallet.service';
 
@@ -70,5 +60,17 @@ export class WalletController {
       dto.amount,
       dto.type ?? WalletType.E_WALLET,
     );
+  }
+
+  @Get(':walletId/transactions')
+  @ApiOperation({ summary: 'Transaction history of a wallet' })
+  @ApiQuery({ name: 'type', required: false, enum: WalletType })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiOkResponse({ description: 'Paginated transaction list' })
+  transactionHistory(
+    @Param('walletId', ParseUUIDPipe) walletId: string,
+    @Query() query: TransactionQueryDto,
+  ) {
+    return this.walletService.transactionHistory(walletId, query);
   }
 }

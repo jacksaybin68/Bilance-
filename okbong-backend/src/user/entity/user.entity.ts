@@ -31,12 +31,11 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 20, default: Role.USER })
   role!: Role;
 
-  @Column({ type: 'boolean', default: false })
-  twoFactorEnabled!: boolean;
-
   @Column({ type: 'varchar', length: 64, nullable: true })
-  @Exclude()
   twoFactorSecret?: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  twoFactorEnabled: boolean = false;
 
   @CreateDateColumn()
   createdAt!: Date;

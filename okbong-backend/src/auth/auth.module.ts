@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { JwtRefreshStrategy } from './jwt-refresh.strategy';
 import { JwtStrategy } from './jwt.strategy';
 import { LocalStrategy } from './local.strategy';
+import { OTPSessionService } from './otp-session.service';
 import { TwoFactorService } from './two-factor.service';
 
 @Global()
@@ -30,7 +31,7 @@ import { TwoFactorService } from './two-factor.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy, TwoFactorService],
-  exports: [AuthService, JwtModule, TwoFactorService, PassportModule],
+  providers: [AuthService, LocalStrategy, JwtStrategy, JwtRefreshStrategy, TwoFactorService, OTPSessionService],
+  exports: [AuthService, JwtModule, TwoFactorService, OTPSessionService, PassportModule],
 })
 export class AuthModule {}

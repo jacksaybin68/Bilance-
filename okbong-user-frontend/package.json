@@ -1,7 +1,7 @@
 {
   "name": "okbong-user-frontend",
   "version": "1.0.0",
-  "description": "",
+  "description": "NexTrading frontend — Next.js 16 P2P & crypto exchange user interface.",
   "main": "index.js",
   "scripts": {
     "dev": "next dev",

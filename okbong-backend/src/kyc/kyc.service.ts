@@ -3,9 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { KycEntity, KYCStatus } from './entities/kyc.entity';
 import { CreateKycDto, KycStatusUpdateDto, KycQueryDto } from './dto/kyc.dto';
-import { UserModule } from '../user/user.module';
-import { forwardRef, Inject } from '@nestjs/common';
-import { UserService } from '../user/user.service';
+import { QueueService } from '../queue/queue.service';
+
+const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_BASE64_SIZE_BYTES = 5 * 1024 * 1024;
 
 @Injectable()
 export class KycService {
@@ -14,8 +15,7 @@ export class KycService {
   constructor(
     @InjectRepository(KycEntity)
     private readonly kycRepository: Repository<KycEntity>,
-    @Inject(forwardRef(() => UserModule))
-    private readonly userModuleRef: UserModule,
+    private readonly queueService: QueueService,
   ) {}
 
   async create(dto: CreateKycDto): Promise<KycEntity> {
@@ -36,9 +36,61 @@ export class KycService {
       status: KYCStatus.PENDING,
     });
 
+    this.validateImage(dto.frontImage, 'frontImage');
+    this.validateImage(dto.backImage, 'backImage');
+    this.validateImage(dto.selfieImage, 'selfieImage');
+
     const saved = await this.kycRepository.save(kyc);
     this.logger.log(`KYC submitted: ${saved.id} for user ${dto.userId}`);
     return saved;
+  }
+
+  validateImage(image: string | null | undefined, fieldName: string): void {
+    if (!image) return;
+
+    const trimmed = image.trim();
+    if (trimmed.startsWith('data:')) {
+      const headerEnd = trimmed.indexOf(',');
+      if (headerEnd === -1) {
+        throw new BadRequestException(`${fieldName} is not a valid data URI`);
+      }
+      const header = trimmed.slice(0, headerEnd);
+      const mimeMatch = header.match(/^data:([^;]+)/);
+      if (!mimeMatch) {
+        throw new BadRequestException(`${fieldName} is not a valid data URI`);
+      }
+      const mime = mimeMatch[1].toLowerCase();
+      if (!ALLOWED_IMAGE_MIME.includes(mime)) {
+        throw new BadRequestException(`${fieldName} must be one of: ${ALLOWED_IMAGE_MIME.join(', ')}`);
+      }
+
+      const encoded = trimmed.slice(headerEnd + 1);
+      const base64 = encoded.replace(/\s+/g, '');
+      const decodedBytes = Math.ceil((base64.length * 3) / 4);
+      if (decodedBytes > MAX_BASE64_SIZE_BYTES) {
+        throw new BadRequestException(`${fieldName} exceeds the maximum image size of ${MAX_BASE64_SIZE_BYTES / 1024 / 1024} MB`);
+      }
+      return;
+    }
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return;
+    }
+
+    throw new BadRequestException(`${fieldName} must be a valid HTTP(S) URL or a data URI`);
+  }
+
+  private enqueueApprovalNotification(kyc: KycEntity): void {
+    this.queueService
+      .add('kyc.approval', {
+        kycId: kyc.id,
+        userId: kyc.userId,
+        status: kyc.status,
+        rejectReason: kyc.rejectReason ?? null,
+      })
+      .catch((err) =>
+        this.logger.error(` failed to enqueue kyc.approval for ${kyc.id}: ${err}`),
+      );
   }
 
   async findOne(id: string): Promise<KycEntity> {
@@ -61,7 +113,21 @@ export class KycService {
     kyc.status = dto.status;
     kyc.rejectReason = dto.rejectReason ?? null;
     kyc.reviewedBy = reviewerId;
-    return this.kycRepository.save(kyc);
+    const updated = await this.kycRepository.save(kyc);
+
+    if (kyc.status === KYCStatus.APPROVED || kyc.status === KYCStatus.REJECTED) {
+      this.enqueueApprovalNotification(updated);
+    }
+
+    return updated;
+  }
+
+  async pendingCount(): Promise<{ pending: number; underReview: number }> {
+    const [pending, underReview] = await Promise.all([
+      this.kycRepository.count({ where: { status: KYCStatus.PENDING } }),
+      this.kycRepository.count({ where: { status: KYCStatus.UNDER_REVIEW } }),
+    ]);
+    return { pending, underReview };
   }
 
   async list(query: KycQueryDto): Promise<KycEntity[]> {

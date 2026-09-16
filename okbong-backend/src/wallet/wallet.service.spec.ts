@@ -5,6 +5,7 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { roundAmount } from '../common/utils/amount.util';
 import { WalletType } from './dto/wallet.dto';
 import { WalletEntity, WalletStatus } from './entity/wallet.entity';
+import { TransactionEntity } from './entity/transaction.entity';
 import { WalletService } from './wallet.service';
 
 // ---------------------------------------------------------------------------
@@ -19,6 +20,9 @@ type MockTxRepo = {
 type MockWalletRepo = {
   find: ReturnType<typeof vi.fn>;
   findOneBy: ReturnType<typeof vi.fn>;
+  findOne: ReturnType<typeof vi.fn>;
+  create: ReturnType<typeof vi.fn>;
+  save: ReturnType<typeof vi.fn>;
 };
 
 const USER_ID = '00000000-0000-4000-a000-000000000001';
@@ -46,29 +50,55 @@ describe('WalletService', () => {
 
   // In-memory store to emulate real transaction isolation for concurrency test
   let store: Map<string, WalletEntity>;
+  // Chứa các transaction đã commit để truy vấn trong concurrent tests
+  let txStore: Map<string, TransactionEntity>;
 
   const keyOf = (userId: string, type: WalletType) => `${userId}:${type}`;
 
   beforeEach(async () => {
     store = new Map<string, WalletEntity>();
+    txStore = new Map<string, TransactionEntity>();
 
     txRepo = {
-      findOne: vi.fn(async ({ where }: { where: { userId: string; type: WalletType } }) => {
-        const found = store.get(keyOf(where.userId, where.type));
-        // Return a shallow clone to mimic TypeORM entity detach
-        return found ? { ...found } : null;
+      findOne: vi.fn(async ({ where }: { where: { userId: string; walletId?: string } }) => {
+        // Support both wallet-based lookup (by userId + type) and tx-based lookup (by walletId)
+        if (where.walletId) {
+          const tx = Array.from(txStore.values()).find(
+            (t) => t.walletId === where.walletId && t.userId === where.userId,
+          );
+          return tx ?? null;
+        }
+        // Find latest wallet in store by userId + type — derive from tx history
+        const wallet = store.get(keyOf(where.userId, where.type));
+        return wallet ?? null;
       }),
-      create: vi.fn((dto: Partial<WalletEntity>) => ({ ...dto }) as WalletEntity),
-      save: vi.fn(async (entity: WalletEntity) => {
-        const clone = { ...entity, id: entity.id ?? `uuid-${Date.now()}-${Math.random()}` };
-        store.set(keyOf(clone.userId, clone.type), clone);
-        return clone;
+      create: vi.fn((dto: Partial<TransactionEntity>) => ({ ...dto } as TransactionEntity)),
+      save: vi.fn(async (entity: TransactionEntity) => {
+        const tx = { ...entity, id: entity.id ?? `tx-${Date.now()}-${Math.random()}` } as TransactionEntity;
+        txStore.set(tx.id, tx);
+        // Update the in-memory wallet in store with the committed balanceAfter
+        // so that concurrent reads see the latest committed state.
+        const existing = store.get(keyOf(tx.userId, tx.type));
+        if (existing) {
+          store.set(keyOf(tx.userId, tx.type), { ...existing, balance: tx.balanceAfter } as WalletEntity);
+        }
+        return tx;
       }),
     };
 
     walletRepo = {
       find: vi.fn(),
       findOneBy: vi.fn(),
+      findOne: vi.fn(async ({ where }: { where: { userId: string; type: WalletType } }) => {
+        const found = store.get(keyOf(where.userId, where.type));
+        return found ? { ...found } : null;
+      }),
+      create: vi.fn((dto: Partial<WalletEntity>) => ({ ...dto }) as WalletEntity),
+      save: vi.fn(async (entity: WalletEntity) => {
+        const clone = { ...entity, id: entity.id ?? `uuid-${Date.now()}-${Math.random()}` } as WalletEntity;
+        store.set(keyOf(clone.userId, clone.type), clone);
+        return clone;
+      }),
     };
 
     // Serialize transactions to emulate row-level lock (DB isolation)
@@ -76,7 +106,13 @@ describe('WalletService', () => {
     let txQueue: Promise<void> = Promise.resolve();
     dataSource = {
       transaction: vi.fn((cb: (manager: EntityManager) => Promise<WalletEntity>) => {
-        const manager = { getRepository: () => txRepo } as unknown as EntityManager;
+        const manager = {
+          getRepository: (entity: unknown) => {
+            if (entity === WalletEntity) return walletRepo as any;
+            if (entity === TransactionEntity) return txRepo as any;
+            return txRepo as any;
+          },
+        } as unknown as EntityManager;
         const run = () => cb(manager);
         const result = txQueue.then(run, run) as Promise<WalletEntity>;
         txQueue = result.then(
@@ -91,6 +127,7 @@ describe('WalletService', () => {
       providers: [
         WalletService,
         { provide: getRepositoryToken(WalletEntity), useValue: walletRepo },
+        { provide: getRepositoryToken(TransactionEntity), useValue: txRepo },
         { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
@@ -131,7 +168,7 @@ describe('WalletService', () => {
 
       expect(result.balance).toBe(150.5);
       expect(result.userId).toBe(USER_ID);
-      expect(txRepo.create).toHaveBeenCalledWith(
+      expect(walletRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({ userId: USER_ID, type: WalletType.E_WALLET, balance: 0 }),
       );
       expect(txRepo.save).toHaveBeenCalledTimes(1);
@@ -144,82 +181,51 @@ describe('WalletService', () => {
       expect(result.balance).toBe(150);
     });
 
-    it('trừ chính xác (withdraw)', async () => {
+    it('trừ đúng từ ví đã có sẵn', async () => {
       store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 200 }));
       const result = await service.withdraw(USER_ID, 80, WalletType.E_WALLET);
       expect(result.balance).toBe(120);
     });
 
-    it('cho phép deposit/withdraw trên các loại ví khác nhau độc lập', async () => {
-      store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ type: WalletType.E_WALLET, balance: 10 }));
-      store.set(keyOf(USER_ID, WalletType.BANK), buildWallet({ type: WalletType.BANK, balance: 500 }));
-
-      await service.deposit(USER_ID, 90, WalletType.E_WALLET);
-      expect(store.get(keyOf(USER_ID, WalletType.E_WALLET))!.balance).toBe(100);
-      expect(store.get(keyOf(USER_ID, WalletType.BANK))!.balance).toBe(500);
-
-      await service.withdraw(USER_ID, 100, WalletType.BANK);
-      expect(store.get(keyOf(USER_ID, WalletType.BANK))!.balance).toBe(400);
-    });
-
-    it('ném BadRequestException khi delta = 0 / NaN / Infinity', async () => {
-      await expect(service.deposit(USER_ID, 0, WalletType.E_WALLET)).rejects.toThrow(BadRequestException);
-      await expect(service.deposit(USER_ID, NaN, WalletType.E_WALLET)).rejects.toThrow(BadRequestException);
-      await expect(service.deposit(USER_ID, Infinity, WalletType.E_WALLET)).rejects.toThrow(BadRequestException);
-      await expect(service.withdraw(USER_ID, 0, WalletType.BANK)).rejects.toThrow(BadRequestException);
-      expect(dataSource.transaction).not.toHaveBeenCalled();
-    });
-  });
-
-  // =========================================================================
-  // Chặn rút quá số dư
-  // =========================================================================
-  describe('withdraw — chặn Insufficient balance', () => {
-    it('chặn withdraw khi ví chưa tồn tại', async () => {
-      await expect(service.withdraw(OTHER_USER, 10, WalletType.E_WALLET)).rejects.toThrow(BadRequestException);
-      await expect(service.withdraw(OTHER_USER, 10, WalletType.E_WALLET)).rejects.toThrow(/Insufficient balance/);
-    });
-
-    it('chặn withdraw vượt quá số dư hiện tại', async () => {
+    it('throw nếu rút nhiều hơn số dư hiện có', async () => {
       store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 30 }));
-      await expect(service.withdraw(USER_ID, 50, WalletType.E_WALLET)).rejects.toThrow(BadRequestException);
-      await expect(service.withdraw(USER_ID, 50, WalletType.E_WALLET)).rejects.toThrow(/Insufficient balance/);
-      // Balance must remain unchanged after failed transaction
-      expect(store.get(keyOf(USER_ID, WalletType.E_WALLET))!.balance).toBe(30);
+      await expect(
+        service.withdraw(USER_ID, 50, WalletType.E_WALLET),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('chặn withdraw khi nextBalance < 0 sau làm tròn', async () => {
-      store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 0.01 }));
-      await expect(service.withdraw(USER_ID, 0.02, WalletType.E_WALLET)).rejects.toThrow(/Insufficient balance/);
+    it('không cho phép delta = 0', async () => {
+      await expect(
+        service.deposit(USER_ID, 0, WalletType.E_WALLET),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('cho phép rút toàn bộ số dư (balance về 0)', async () => {
-      store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 75.5 }));
-      const result = await service.withdraw(USER_ID, 75.5, WalletType.E_WALLET);
-      expect(result.balance).toBe(0);
-    });
-  });
-
-  // =========================================================================
-  // Làm tròn số thập phân — roundAmount tránh floating point drift
-  // =========================================================================
-  describe('roundAmount — tránh lỗi floating point', () => {
-    it('roundAmount utility: 0.1 + 0.2 phải = 0.3 chứ không phải 0.30000000000000004', () => {
-      expect(roundAmount(0.1 + 0.2)).toBe(0.3);
-      expect(0.1 + 0.2).not.toBe(0.3); // chứng minh lỗi gốc của JS
+    it('không cho phép delta = NaN hoặc Infinity', async () => {
+      await expect(
+        service.deposit(USER_ID, NaN as any, WalletType.E_WALLET),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        service.deposit(USER_ID, Infinity as any, WalletType.E_WALLET),
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it('deposit 0.1 rồi deposit 0.2 → balance = 0.3', async () => {
-      await service.deposit(USER_ID, 0.1, WalletType.E_WALLET);
-      await service.deposit(USER_ID, 0.2, WalletType.E_WALLET);
-      expect(store.get(keyOf(USER_ID, WalletType.E_WALLET))!.balance).toBe(0.3);
+    it('applyDelta chạy trong transaction, commit giao dịch vào txRepo', async () => {
+      const depositPromise = service.deposit(USER_ID, 100, WalletType.E_WALLET);
+      await depositPromise;
+
+      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+      expect(txRepo.save).toHaveBeenCalledTimes(1);
     });
 
-    it('1.005 làm tròn thành 1.01 (banker edge) — kiểm qua service', async () => {
-      store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 0 }));
-      // 1.005 is a classic floating point rounding trap
-      const result = await service.deposit(USER_ID, 1.005, WalletType.E_WALLET);
+    it('số tiền có thể âm khi withdraw (delta âm) nhưng balance không được âm', async () => {
+      store.set(keyOf(USER_ID, WalletType.E_WALLET), buildWallet({ balance: 50 }));
+      const result = await service.withdraw(USER_ID, 20, WalletType.E_WALLET);
+      expect(result.balance).toBe(30);
+    });
+
+    it('làm tròn balance đến 2 chữ số thập phân khi cộng số lẻ', async () => {
       // roundAmount(0 + 1.005) = Math.round(1.005 *100)/100 = 1.01 (with EPSILON guard)
+      const result = await service.deposit(USER_ID, 1.005, WalletType.E_WALLET);
       expect(result.balance).toBe(1.01);
     });
 

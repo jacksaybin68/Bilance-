@@ -30,6 +30,15 @@ export class KycController {
     return null;
   }
 
+  @Get('pending-count')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @UseGuards(RolesGuard)
+  @ApiOperation({ summary: 'Pending KYC count for admin dashboard' })
+  @ApiOkResponse({ description: 'Pending and under-review counts' })
+  async pendingCount(): Promise<{ pending: number; underReview: number }> {
+    return this.kycService.pendingCount();
+  }
+
   @Get()
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @UseGuards(RolesGuard)

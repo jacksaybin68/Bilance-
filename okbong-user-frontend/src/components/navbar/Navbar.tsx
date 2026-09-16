@@ -48,7 +48,7 @@ export function Navbar() {
         <div className="flex items-center gap-8">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="flex h-9 items-center justify-center rounded-lg bg-black px-2.5 text-lg font-black tracking-widest text-white transition-transform group-hover:scale-105 dark:bg-white dark:text-black">
-              OKX
+              NexTrading
             </div>
             <span className="hidden text-xs font-semibold uppercase tracking-wider text-primary sm:inline-block">
               P2P Express

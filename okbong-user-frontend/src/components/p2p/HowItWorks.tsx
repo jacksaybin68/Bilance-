@@ -46,7 +46,7 @@ export function HowItWorks() {
           {t('p2p.howItWorks')}
         </h3>
         <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-          Giao dịch P2P an toàn, không tính phí và được bảo vệ 100% bằng dịch vụ ký quỹ Escrow của OKX.
+          Giao dịch P2P an toàn, không tính phí và được bảo vệ 100% bằng dịch vụ ký quỹ Escrow của NexTrading.
         </p>
       </div>
 

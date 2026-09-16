@@ -1,0 +1,78 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: runtime
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - okbong
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: runtime
+    command: ['node', 'dist/worker.js']
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - okbong
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-okbong}
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-okbong}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - okbong
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - okbong
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  okbong:
+    name: okbong-network

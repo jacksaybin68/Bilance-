@@ -5,7 +5,7 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = 'vi';
 
 const vi = {
-  'app.admin': 'Quản trị OKBong',
+  'app.admin': 'Quản trị NexTrading',
   'common.search': 'Tìm kiếm',
   'common.loading': 'Đang tải…',
   'common.retry': 'Thử lại',
@@ -124,7 +124,7 @@ const vi = {
 export type MessageKey = keyof typeof vi;
 
 const en: Record<MessageKey, string> = {
-  'app.admin': 'OKBong Admin',
+  'app.admin': 'NexTrading Admin',
   'common.search': 'Search',
   'common.loading': 'Loading…',
   'common.retry': 'Retry',

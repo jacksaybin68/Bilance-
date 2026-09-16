@@ -34,7 +34,7 @@ async function bootstrap() {
 
   // Swagger
   const doc = new DocumentBuilder()
-    .setTitle('OKBong API')
+    .setTitle('NexTrading API')
     .setVersion(config.get<string>('APP_VERSION', '1'))
     .addBearerAuth()
     .build();
@@ -48,7 +48,7 @@ async function bootstrap() {
 
   const port = Number(config.get('PORT', 3000));
   await app.listen(port);
-  logger.log(`OKBong backend listening on port ${port}`);
+  logger.log(`NexTrading backend listening on port ${port}`);
 }
 
 bootstrap();

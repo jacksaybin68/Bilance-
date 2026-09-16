@@ -4,6 +4,7 @@ import type {
   BillFilter,
   CreateBillRequest,
   LoginRequest,
+  PaginatedTransactions,
   PricePoint,
   RegisterRequest,
   User,
@@ -47,6 +48,23 @@ export const walletApi = {
     apiClient.post<Wallet>('/wallet/deposit', payload),
   withdraw: (payload: WalletMutationRequest): Promise<Wallet> =>
     apiClient.post<Wallet>('/wallet/withdraw', payload),
+  transactions: (
+    walletId: string,
+    params: {
+      type?: 'deposit' | 'withdraw' | 'transfer_in' | 'transfer_out' | 'fee' | 'adjustment';
+      status?: 'pending' | 'completed' | 'failed' | 'reversed';
+      limit?: number;
+      offset?: number;
+    } = {},
+  ): Promise<PaginatedTransactions> =>
+    apiClient.get<PaginatedTransactions>(
+      `/wallet/${walletId}/transactions${toQuery({
+        type: params.type,
+        status: params.status,
+        limit: params.limit,
+        offset: params.offset,
+      })}`,
+    ),
 };
 
 export const billApi = {

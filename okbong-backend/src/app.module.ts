@@ -9,6 +9,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { BillModule } from './bill/bill.module';
 import { PriceFluctuationModule } from './pricefluctuation/pricefluctuation.module';
+import { PaymentWebhookModule } from './payment/payment-webhook.module';
 import { QueueModule } from './queue/index';
 import { RealtimeModule } from './realtime/realtime.module';
 import { RedisModule } from './redis/redis.module';
@@ -16,6 +17,7 @@ import { UserModule } from './user/user.module';
 import { WalletModule } from './wallet/wallet.module';
 import { KYCModule } from './kyc/kyc.module';
 import { DeadLetterQueueModule } from './queue/dead-letter-queue.module';
+import { OrderModule } from './order/order.module';
 
 @Module({
   imports: [
@@ -28,6 +30,9 @@ import { DeadLetterQueueModule } from './queue/dead-letter-queue.module';
       throttlers: [
         { name: 'global', ttl: 60_000, limit: 60 },
         { name: 'auth', ttl: 60_000, limit: 10 },
+        { name: 'wallet', ttl: 60_000, limit: 20 },
+        { name: 'bill', ttl: 60_000, limit: 30 },
+        { name: 'payment', ttl: 60_000, limit: 15 },
       ],
     }),
     TypeOrmModule.forRootAsync({
@@ -66,11 +71,13 @@ import { DeadLetterQueueModule } from './queue/dead-letter-queue.module';
     WalletModule,
     BillModule,
     PriceFluctuationModule,
+    PaymentWebhookModule,
     QueueModule,
     RedisModule,
     RealtimeModule,
     KYCModule,
     DeadLetterQueueModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [

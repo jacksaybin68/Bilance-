@@ -33,6 +33,45 @@ export interface Wallet {
   currency: string;
   status: WalletStatus;
   createdAt: string;
+  updatedAt: string;
+}
+
+export type TransactionType = 'deposit' | 'withdraw' | 'transfer_in' | 'transfer_out' | 'fee' | 'adjustment';
+
+export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
+
+export interface Transaction {
+  id: string;
+  walletId: string;
+  userId: string;
+  type: TransactionType;
+  status: TransactionStatus;
+  amount: number;
+  feeAmount?: number | null;
+  balanceBefore: number;
+  balanceAfter: number;
+  reference?: string | null;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransactionQuery {
+  walletType?: WalletType;
+  walletId?: string;
+  userId?: string;
+  type?: TransactionType;
+  status?: TransactionStatus;
+  minAmount?: number;
+  maxAmount?: number;
+  reference?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedTransactions {
+  items: Transaction[];
+  total: number;
 }
 
 export interface Bill {

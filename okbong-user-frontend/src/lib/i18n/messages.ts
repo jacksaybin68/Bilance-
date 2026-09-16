@@ -10,7 +10,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 };
 
 const vi = {
-  'app.name': 'OKX',
+  'app.name': 'NexTrading',
   'app.tagline': 'Sàn giao dịch P2P & Mua Bán Tiền Mã Hoá Hàng Đầu.',
 
   'common.loading': 'Đang tải…',
@@ -41,7 +41,7 @@ const vi = {
   'nav.theme.toggle': 'Đổi giao diện sáng/tối',
   'nav.language.toggle': 'Đổi ngôn ngữ',
 
-  'landing.welcome': 'Chào mừng đến với Billdayroi',
+  'landing.welcome': 'Chào mừng đến với NexTrading',
   'landing.subtitle':
     'Cách nhanh nhất để tạo và quản lý hoá đơn. Tham gia cùng hàng nghìn người dùng hài lòng.',
   'landing.login': 'Đăng nhập',
@@ -128,7 +128,7 @@ const vi = {
   'lock.error': 'Mã PIN không đúng.',
 
   'validation.password.mismatch': 'Mật khẩu nhập lại không khớp.',
-  'footer.rights': '2026 OKBong - Bảo lưu mọi quyền.',
+  'footer.rights': '© 2026 NexTrading. Tất cả quyền được bảo lưu.',
   'footer.language': 'Ngôn ngữ',
 
   'nav.wallet': 'Ví',
@@ -243,7 +243,7 @@ const vi = {
 export type MessageKey = keyof typeof vi;
 
 const en: Record<MessageKey, string> = {
-  'app.name': 'OKX',
+  'app.name': 'NexTrading',
   'app.tagline': 'Leading Crypto & P2P Exchange Platform.',
 
   'common.loading': 'Loading…',
@@ -274,7 +274,7 @@ const en: Record<MessageKey, string> = {
   'nav.theme.toggle': 'Toggle light/dark theme',
   'nav.language.toggle': 'Change language',
 
-  'landing.welcome': 'Welcome to Billdayroi',
+  'landing.welcome': 'Welcome to NexTrading',
   'landing.subtitle':
     'The fastest way to generate and manage your bills. Join thousands of satisfied users.',
   'landing.login': 'Login',
@@ -361,7 +361,7 @@ const en: Record<MessageKey, string> = {
   'lock.unlock': 'Unlock',
   'lock.error': 'Incorrect PIN.',
 
-  'footer.rights': '2026 OKBong - All rights reserved.',
+  'footer.rights': '© 2026 NexTrading. All rights reserved.',
   'footer.language': 'Language',
 
   'nav.wallet': 'Wallet',

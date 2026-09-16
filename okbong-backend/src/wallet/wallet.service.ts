@@ -1,15 +1,23 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { roundAmount } from '../common/utils/amount.util';
 import { WalletType } from './dto/wallet.dto';
 import { WalletEntity, WalletStatus } from './entity/wallet.entity';
+import {
+  TransactionEntity,
+  TransactionType,
+  TransactionStatus,
+} from './entity/transaction.entity';
+import { TransactionQueryDto } from './dto/transaction.dto';
 
 @Injectable()
 export class WalletService {
   constructor(
     @InjectRepository(WalletEntity)
     private readonly walletRepository: Repository<WalletEntity>,
+    @InjectRepository(TransactionEntity)
+    private readonly transactionRepository: Repository<TransactionEntity>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -26,6 +34,27 @@ export class WalletService {
     return wallet;
   }
 
+  async transactionHistory(
+    walletId: string,
+    query: TransactionQueryDto,
+    limit = 50,
+    offset = 0,
+  ) {
+    const where: FindOptionsWhere<TransactionEntity> = { walletId };
+    if (query.type) where.type = query.type;
+    if (query.status) where.status = query.status;
+    if (query.reference) where.reference = query.reference;
+
+    const [items, total] = await this.transactionRepository.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+
+    return { items, total };
+  }
+
   deposit(userId: string, amount: number, type: WalletType): Promise<WalletEntity> {
     return this.applyDelta(userId, amount, type, 'deposit');
   }
@@ -34,10 +63,6 @@ export class WalletService {
     return this.applyDelta(userId, -amount, type, 'withdraw');
   }
 
-  /**
-   * Applies a signed balance change inside a transaction so concurrent
-   * deposits/withdrawals cannot corrupt the stored balance.
-   */
   private async applyDelta(
     userId: string,
     delta: number,
@@ -49,20 +74,38 @@ export class WalletService {
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const repository = manager.getRepository(WalletEntity);
-      let wallet = await repository.findOne({ where: { userId, type } });
+      const walletRepo = manager.getRepository(WalletEntity);
+      const txRepo = manager.getRepository(TransactionEntity);
+
+      let wallet = await walletRepo.findOne({ where: { userId, type } });
 
       if (!wallet) {
         if (operation === 'withdraw') throw new BadRequestException('Insufficient balance');
-
-        wallet = repository.create({ userId, type, balance: 0, status: WalletStatus.ACTIVE });
+        wallet = walletRepo.create({ userId, type, balance: 0, status: WalletStatus.ACTIVE });
       }
 
       const nextBalance = roundAmount(Number(wallet.balance) + delta);
       if (nextBalance < 0) throw new BadRequestException('Insufficient balance');
 
+      const txType = operation === 'deposit' ? TransactionType.DEPOSIT : TransactionType.WITHDRAW;
+      const txStatus = TransactionStatus.COMPLETED;
+
+      const transaction = txRepo.create({
+        walletId: wallet.id,
+        userId,
+        type: txType,
+        status: txStatus,
+        amount: Math.abs(delta),
+        balanceBefore: Number(wallet.balance),
+        balanceAfter: nextBalance,
+        description: `${operation === 'deposit' ? 'Nạp tiền' : 'Rút tiền'} vào ví`,
+      });
+
       wallet.balance = nextBalance;
-      return repository.save(wallet);
+      await walletRepo.save(wallet);
+      await txRepo.save(transaction);
+
+      return wallet;
     });
   }
 }

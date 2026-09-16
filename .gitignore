@@ -8,9 +8,18 @@ dist/
 .env.*
 !.env.example
 *.tsbuildinfo
+build/
+coverage/
+.turbo/
+
+# agent working files — not part of product
 AGENTS.md
 CLAUDE.md
+OKBong_Status.md
+.aider*
+cursor-rules/
 
 # OS junk
 .DS_Store
+Thumbs.db
 
