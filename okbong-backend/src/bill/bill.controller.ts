@@ -29,7 +29,7 @@ import { BillService } from './bill.service';
 @ApiTags('bills')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.ADMIN)
+@Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @Controller('bills')
 export class BillController {
   constructor(private readonly billService: BillService) {}

@@ -63,11 +63,27 @@ export class WalletService {
     return this.applyDelta(userId, -amount, type, 'withdraw');
   }
 
+  /**
+   * Adjusts a wallet balance by an arbitrary (signed) delta and records an
+   * `adjustment` transaction. Used for order settlement or admin corrections.
+   */
+  adjust(
+    userId: string,
+    delta: number,
+    type: WalletType = WalletType.E_WALLET,
+    description?: string,
+    reference?: string,
+  ): Promise<WalletEntity> {
+    return this.applyDelta(userId, delta, type, 'adjust', description, reference);
+  }
+
   private async applyDelta(
     userId: string,
     delta: number,
     type: WalletType,
-    operation: 'deposit' | 'withdraw',
+    operation: 'deposit' | 'withdraw' | 'adjust',
+    description?: string,
+    reference?: string,
   ): Promise<WalletEntity> {
     if (!Number.isFinite(delta) || delta === 0) {
       throw new BadRequestException('Amount must be a non zero number');
@@ -84,28 +100,39 @@ export class WalletService {
         wallet = walletRepo.create({ userId, type, balance: 0, status: WalletStatus.ACTIVE });
       }
 
-      const nextBalance = roundAmount(Number(wallet.balance) + delta);
+      const balanceBefore = Number(wallet.balance);
+      const nextBalance = roundAmount(balanceBefore + delta);
       if (nextBalance < 0) throw new BadRequestException('Insufficient balance');
 
-      const txType = operation === 'deposit' ? TransactionType.DEPOSIT : TransactionType.WITHDRAW;
+      const txType =
+        operation === 'deposit'
+          ? TransactionType.DEPOSIT
+          : operation === 'withdraw'
+            ? TransactionType.WITHDRAW
+            : TransactionType.ADJUSTMENT;
       const txStatus = TransactionStatus.COMPLETED;
 
+      const fallback = `Điều chỉnh số dư ví${delta >= 0 ? '' : ' (trừ điểm)'}`;
+
+      // Save the wallet first so its id is populated (needed for a brand-new wallet),
+      // then record the transaction against the persisted id.
+      wallet.balance = nextBalance;
+      const savedWallet = await walletRepo.save(wallet);
+
       const transaction = txRepo.create({
-        walletId: wallet.id,
+        walletId: savedWallet.id,
         userId,
         type: txType,
         status: txStatus,
         amount: Math.abs(delta),
-        balanceBefore: Number(wallet.balance),
+        balanceBefore,
         balanceAfter: nextBalance,
-        description: `${operation === 'deposit' ? 'Nạp tiền' : 'Rút tiền'} vào ví`,
+        description: description ?? fallback,
+        reference: reference ?? null,
       });
-
-      wallet.balance = nextBalance;
-      await walletRepo.save(wallet);
       await txRepo.save(transaction);
 
-      return wallet;
+      return savedWallet;
     });
   }
 }

@@ -1,23 +1,59 @@
+import { UndoOutlined } from '@ant-design/icons';
 import type { TableProps } from 'antd';
-import { Button, Typography } from 'antd';
+import { App, Button, Popconfirm, Typography } from 'antd';
+import { useCallback } from 'react';
 import { DataTable } from '@/components/ui/DataTable';
+import { StatusTag } from '@/components/ui/StatusTag';
 import { useI18n } from '@/lib/i18n';
-import { DEMO_BANNED_USERS, type BannedUserRow } from './demoData';
+import type { MessageKey } from '@/lib/i18n/messages';
+import { formatDateTime } from '@/lib/format';
+import { errorMessage, useApi } from '@/lib/hooks/useApi';
+import { userApi, type AdminUserDto } from '@/lib/api/endpoints';
 
+/** Banned users — the same collection as User Management filtered by status. */
 export function BannedUsers() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { message } = App.useApp();
 
-  const columns: TableProps<BannedUserRow>['columns'] = [
-    { title: t('table.username'), dataIndex: 'username', key: 'username' },
+  const load = useCallback(
+    (signal: AbortSignal) => userApi.list({ status: 'banned', limit: 100 }),
+    [],
+  );
+  const { data, loading, error, reload } = useApi(load);
+  const rows = data?.items ?? [];
+
+  const unban = async (record: AdminUserDto) => {
+    try {
+      await userApi.unban(record.id);
+      message.success(t('common.save'));
+      reload();
+    } catch (caught) {
+      message.error(errorMessage(caught, t('common.error')));
+    }
+  };
+
+  const columns: TableProps<AdminUserDto>['columns'] = [
+    { title: t('table.username'), dataIndex: 'fullName', key: 'fullName', render: (value: string | null) => value ?? '—' },
     { title: t('table.email'), dataIndex: 'email', key: 'email' },
-    { title: t('table.reason'), dataIndex: 'reason', key: 'reason' },
-    { title: t('table.bannedAt'), dataIndex: 'bannedAt', key: 'bannedAt' },
-    { title: t('table.duration'), dataIndex: 'duration', key: 'duration' },
+    { title: t('table.role'), dataIndex: 'role', key: 'role', render: (value: AdminUserDto['role']) => t(`role.${value}` as MessageKey) },
+    { title: t('table.status'), dataIndex: 'status', key: 'status', render: (value: string) => <StatusTag status={value} /> },
+    {
+      title: t('table.bannedAt'),
+      dataIndex: 'updatedAt',
+      key: 'updatedAt',
+      render: (value: string) => formatDateTime(value, locale),
+    },
     {
       title: t('common.actions'),
       key: 'actions',
       fixed: 'right',
-      render: () => <Button size="small">{t('common.view')}</Button>,
+      render: (_value, record) => (
+        <Popconfirm title={t('status.active')} onConfirm={() => unban(record)}>
+          <Button size="small" icon={<UndoOutlined />}>
+            {t('status.active')}
+          </Button>
+        </Popconfirm>
+      ),
     },
   ];
 
@@ -27,11 +63,14 @@ export function BannedUsers() {
         {t('page.banned.title')}
       </Typography.Title>
 
-      <DataTable<BannedUserRow>
+      {error ? <Typography.Text type="danger">{t('common.error')}</Typography.Text> : null}
+
+      <DataTable<AdminUserDto>
         columns={columns}
-        rows={DEMO_BANNED_USERS}
+        rows={rows}
         rowKey="id"
-        searchKeys={['username', 'email']}
+        loading={loading}
+        searchKeys={['fullName', 'email']}
       />
     </div>
   );

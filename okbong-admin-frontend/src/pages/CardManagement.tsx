@@ -1,14 +1,25 @@
+import { InfoCircleOutlined } from '@ant-design/icons';
 import type { TableProps } from 'antd';
-import { Button, Tag, Typography } from 'antd';
+import { Alert, Tag, Typography } from 'antd';
+import { useCallback } from 'react';
 import { DataTable } from '@/components/ui/DataTable';
-import { StatusTag } from '@/components/ui/StatusTag';
 import { useI18n } from '@/lib/i18n';
-import { DEMO_CARDS, type CardRow } from './demoData';
+import { useApi } from '@/lib/hooks/useApi';
+import { cardApi, type AdminCardDto } from '@/lib/api/endpoints';
 
+/**
+ * Card management. The backend has no card model yet, so `/admin/cards`
+ * reports `implemented: false` and this screen shows the empty state instead
+ * of fabricated rows.
+ */
 export function CardManagement() {
   const { t } = useI18n();
 
-  const columns: TableProps<CardRow>['columns'] = [
+  const load = useCallback((signal: AbortSignal) => cardApi.list(), []);
+  const { data, loading } = useApi(load);
+  const rows = data?.items ?? [];
+
+  const columns: TableProps<AdminCardDto>['columns'] = [
     {
       title: t('table.cardType'),
       dataIndex: 'cardType',
@@ -18,13 +29,7 @@ export function CardManagement() {
     { title: t('table.user'), dataIndex: 'userId', key: 'userId' },
     { title: t('table.last4'), dataIndex: 'last4', key: 'last4' },
     { title: t('table.expiry'), dataIndex: 'expiry', key: 'expiry' },
-    { title: t('table.status'), dataIndex: 'status', key: 'status', render: (value: string) => <StatusTag status={value} /> },
-    {
-      title: t('common.actions'),
-      key: 'actions',
-      fixed: 'right',
-      render: () => <Button size="small" type="primary">{t('common.manage')}</Button>,
-    },
+    { title: t('table.status'), dataIndex: 'status', key: 'status' },
   ];
 
   return (
@@ -33,22 +38,21 @@ export function CardManagement() {
         {t('page.cards.title')}
       </Typography.Title>
 
-      <DataTable<CardRow>
+      {data && !data.implemented ? (
+        <Alert
+          type="info"
+          showIcon
+          icon={<InfoCircleOutlined />}
+          message="Backend chưa có model thẻ — màn hình hiển thị trạng thái rỗng."
+        />
+      ) : null}
+
+      <DataTable<AdminCardDto>
         columns={columns}
-        rows={DEMO_CARDS}
+        rows={rows}
         rowKey="id"
+        loading={loading}
         searchKeys={['userId', 'last4']}
-        filters={[
-          {
-            key: 'status',
-            label: t('filter.status'),
-            options: [
-              { value: 'active', label: t('status.active') },
-              { value: 'verified', label: t('status.verified') },
-              { value: 'pending', label: t('status.pending') },
-            ],
-          },
-        ]}
       />
     </div>
   );

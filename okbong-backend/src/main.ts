@@ -1,6 +1,6 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -20,7 +20,11 @@ async function bootstrap() {
 
   // Global filters & interceptors
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    // Honours @Exclude() on entities (e.g. UserEntity#passwordHash).
+    new ClassSerializerInterceptor(app.get(Reflector)),
+  );
 
   // CORS
   const origins = (config.get<string>('CORS_ORIGIN') ?? '')

@@ -1,42 +1,31 @@
 import type { TableProps } from 'antd';
 import { Button, Modal, Tag, Typography } from 'antd';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusTag } from '@/components/ui/StatusTag';
 import { billApi, type AdminBillDto } from '@/lib/api/endpoints';
+import { useApi } from '@/lib/hooks/useApi';
 import { useI18n } from '@/lib/i18n';
-import { DEMO_BILLS } from './demoData';
+import { formatCurrency } from '@/lib/format';
 
 export function BillManagement() {
-  const { t } = useI18n();
-  const [rows, setRows] = useState<AdminBillDto[]>(DEMO_BILLS);
-  const [loading, setLoading] = useState(true);
+  const { t, locale } = useI18n();
   const [detail, setDetail] = useState<AdminBillDto | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const result = await billApi.list();
-        if (!cancelled && result.items.length > 0) setRows(result.items);
-      } catch {
-        if (!cancelled) setRows(DEMO_BILLS);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const load = useCallback((signal: AbortSignal) => billApi.list({ limit: 100 }), []);
+  const { data, loading, error } = useApi(load);
+  const rows = data?.items ?? [];
 
   const columns: TableProps<AdminBillDto>['columns'] = [
     { title: t('table.type'), dataIndex: 'type', key: 'type', render: (value: string) => <Tag color="blue">{value}</Tag> },
     { title: t('table.user'), dataIndex: 'userId', key: 'userId' },
-    { title: t('table.details'), dataIndex: 'content', key: 'content' },
+    {
+      title: t('table.amount'),
+      dataIndex: 'amount',
+      key: 'amount',
+      render: (value: number) => formatCurrency(value, locale),
+    },
+    { title: t('table.details'), dataIndex: 'description', key: 'description', render: (value: string | null) => value ?? '—' },
     { title: t('table.status'), dataIndex: 'status', key: 'status', render: (value: string) => <StatusTag status={value} /> },
     { title: t('table.createdAt'), dataIndex: 'createdAt', key: 'createdAt', render: (value: string) => new Date(value).toLocaleString() },
     {
@@ -57,20 +46,21 @@ export function BillManagement() {
         {t('page.bills.title')}
       </Typography.Title>
 
+      {error ? <Typography.Text type="danger">{t('common.error')}</Typography.Text> : null}
+
       <DataTable<AdminBillDto>
         columns={columns}
         rows={rows}
         rowKey="id"
         loading={loading}
-        searchKeys={['userId', 'content']}
+        searchKeys={['userId', 'description']}
         filters={[
           {
             key: 'status',
             label: t('filter.status'),
             options: [
               { value: 'pending', label: t('status.pending') },
-              { value: 'processing', label: t('status.processing') },
-              { value: 'completed', label: t('status.completed') },
+              { value: 'paid', label: t('status.paid') },
               { value: 'cancelled', label: t('status.cancelled') },
             ],
           },
@@ -78,10 +68,9 @@ export function BillManagement() {
             key: 'type',
             label: t('filter.type'),
             options: [
-              { value: 'transfer', label: 'Transfer' },
-              { value: 'e-wallet', label: 'E-Wallet' },
-              { value: 'fluctuation', label: 'Fluctuation' },
-              { value: 'priority', label: 'Priority' },
+              { value: 'recurring', label: 'Recurring' },
+              { value: 'payment', label: 'Payment' },
+              { value: 'charging', label: 'Charging' },
             ],
           },
         ]}
@@ -97,7 +86,8 @@ export function BillManagement() {
           <div className="space-y-2 text-sm">
             <p>ID: {detail.id}</p>
             <p>{t('table.user')}: {detail.userId}</p>
-            <p>{t('table.details')}: {detail.content}</p>
+            <p>{t('table.amount')}: {formatCurrency(detail.amount, locale)}</p>
+            <p>{t('table.details')}: {detail.description ?? '—'}</p>
             <p>{t('table.status')}: <StatusTag status={detail.status} /></p>
           </div>
         ) : null}
