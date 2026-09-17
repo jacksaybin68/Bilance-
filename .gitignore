@@ -23,3 +23,6 @@ cursor-rules/
 .DS_Store
 Thumbs.db
 
+
+# dev server logs
+logs/

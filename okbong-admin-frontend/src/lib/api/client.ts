@@ -25,6 +25,8 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
+  /** Explicit bearer token, used before a session exists (e.g. login). */
+  token?: string;
 }
 
 function readMessages(payload: unknown, fallback: string): string[] {
@@ -38,11 +40,11 @@ function readMessages(payload: unknown, fallback: string): string[] {
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal } = options;
+  const { method = 'GET', body, signal, token: explicitToken } = options;
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-  const token = getAccessToken();
+  const token = explicitToken ?? getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
@@ -71,8 +73,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
+/** Accepts both the legacy `AbortSignal` argument and an options object. */
+function normalizeGetOptions(
+  signalOrOptions?: AbortSignal | { token?: string; signal?: AbortSignal },
+): RequestOptions {
+  if (signalOrOptions instanceof AbortSignal) return { signal: signalOrOptions };
+  return signalOrOptions ?? {};
+}
+
 export const apiClient = {
-  get: <T>(path: string, signal?: AbortSignal): Promise<T> => request<T>(path, { signal }),
+  get: <T>(path: string, signalOrOptions?: AbortSignal | { token?: string; signal?: AbortSignal }): Promise<T> =>
+    request<T>(path, normalizeGetOptions(signalOrOptions)),
   post: <T>(path: string, body?: unknown): Promise<T> => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown): Promise<T> => request<T>(path, { method: 'PUT', body }),
   patch: <T>(path: string, body?: unknown): Promise<T> =>

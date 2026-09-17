@@ -182,8 +182,8 @@ export class OrderService {
 
   /**
    * Admin override of an order's result. The status is validated against the
-   * lifecycle table and `filledAmount` is clamped to [0, amount] so an override
-   * can never over-fill or resurrect a terminal order.
+   * lifecycle table and `filledAmount` is rejected when it exceeds [0, amount]
+   * so an override can never over-fill or resurrect a terminal order.
    */
   async overrideResult(
     id: string,

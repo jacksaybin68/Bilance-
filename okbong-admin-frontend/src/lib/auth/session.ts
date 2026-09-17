@@ -95,15 +95,3 @@ export function getAccessToken(): string | null {
     return null;
   }
 }
-
-/** Local sign in used when the API is unavailable (keeps the role guard usable). */
-export function signInLocal(email: string, role: AdminRole = 'admin'): AdminSession {
-  const session: AdminSession = {
-    user: { id: 'local-admin', email, fullName: email.split('@')[0], role },
-    accessToken: 'local-session-token',
-    issuedAt: new Date().toISOString(),
-  };
-
-  saveSession(session);
-  return session;
-}

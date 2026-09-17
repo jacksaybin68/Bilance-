@@ -275,8 +275,10 @@ export class ChatService {
       kind: input.dto.kind,
       body,
       attachment: input.dto.attachment ?? null,
-      readByUser: !isFromUser,
-      readByAdmin: isFromUser,
+      // The sender has by definition already seen their own message, so the
+      // sender's side is marked read and only the recipient side stays unread.
+      readByUser: isFromUser,
+      readByAdmin: !isFromUser,
     });
     const saved = await this.messageRepository.save(message);
 

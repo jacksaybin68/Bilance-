@@ -1,15 +1,14 @@
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Form, Input, Select, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError, apiClient } from '@/lib/api/client';
-import { AdminRole, saveSession, signInLocal } from '@/lib/auth/session';
+import { ADMIN_ROLES, AdminRole, isAdminRole, saveSession } from '@/lib/auth/session';
 import { useI18n } from '@/lib/i18n';
 
 interface LoginFormValues {
   email: string;
   password: string;
-  role: AdminRole;
 }
 
 /** Admin sign in. Falls back to a local session when the API is unreachable. */
@@ -29,21 +28,35 @@ export function LoginPage() {
         password: values.password,
       });
 
+      // The role must come from the server: trusting a form value would let any
+      // account promote itself to admin.
+      const profile = await apiClient.get<{ id: string; email: string; fullName?: string; role: AdminRole }>(
+        '/auth/profile',
+        { token: response.accessToken },
+      );
+
+      if (!isAdminRole(profile.role) || !ADMIN_ROLES.includes(profile.role)) {
+        setError(t('auth.error.notAdmin'));
+        setSubmitting(false);
+        return;
+      }
+
       saveSession({
-        user: { id: 'api-admin', email: values.email.trim(), role: values.role },
+        user: {
+          id: profile.id,
+          email: profile.email,
+          fullName: profile.fullName,
+          role: profile.role,
+        },
         accessToken: response.accessToken,
         issuedAt: new Date().toISOString(),
       });
     } catch (caught) {
-      if (caught instanceof ApiError && caught.isNetworkError) {
-        signInLocal(values.email.trim(), values.role);
-      } else {
-        setError(
-          caught instanceof ApiError ? (caught.messages[0] ?? t('common.error')) : t('common.error'),
-        );
-        setSubmitting(false);
-        return;
-      }
+      setError(
+        caught instanceof ApiError ? (caught.messages[0] ?? t('common.error')) : t('common.error'),
+      );
+      setSubmitting(false);
+      return;
     }
 
     setSubmitting(false);
@@ -63,7 +76,6 @@ export function LoginPage() {
         <Form<LoginFormValues>
           layout="vertical"
           onFinish={handleFinish}
-          initialValues={{ role: 'admin' }}
         >
           <Form.Item
             name="email"
@@ -82,16 +94,6 @@ export function LoginPage() {
             rules={[{ required: true, min: 6, message: t('common.error') }]}
           >
             <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
-          </Form.Item>
-
-          <Form.Item name="role" label={t('filter.role')}>
-            <Select
-              options={[
-                { value: 'admin', label: t('role.admin') },
-                { value: 'super_admin', label: t('role.super_admin') },
-                { value: 'moderator', label: t('role.moderator') },
-              ]}
-            />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block loading={submitting}>

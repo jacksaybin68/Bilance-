@@ -81,8 +81,8 @@ export class OrderQueryDto {
 
 /**
  * Admin override for a single order: the status plus the filled quantity.
- * `filledAmount` is clamped to [0, amount] by the service so an override can
- * never leave an order over-filled.
+ * `filledAmount` above the order amount is rejected by the service so an
+ * override can never leave an order over-filled.
  */
 export class AdminOrderResultDto {
   @ApiProperty({ enum: OrderStatus })
