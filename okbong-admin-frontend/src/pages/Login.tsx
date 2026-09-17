@@ -11,7 +11,7 @@ interface LoginFormValues {
   password: string;
 }
 
-/** Admin sign in. Falls back to a local session when the API is unreachable. */
+/** Admin sign in. The role is taken from the server profile, never the form. */
 export function LoginPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -69,7 +69,7 @@ export function LoginPage() {
         <Typography.Title level={3} style={{ marginBottom: 4 }}>
           {t('app.admin')}
         </Typography.Title>
-        <Typography.Paragraph type="secondary">{t('nav.dashboard')}</Typography.Paragraph>
+        <Typography.Paragraph type="secondary">{t('auth.login.subtitle')}</Typography.Paragraph>
 
         {error ? <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} /> : null}
 
@@ -90,14 +90,14 @@ export function LoginPage() {
 
           <Form.Item
             name="password"
-            label={t('table.value')}
+            label={t('auth.login.password')}
             rules={[{ required: true, min: 6, message: t('common.error') }]}
           >
             <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
 
           <Button type="primary" htmlType="submit" block loading={submitting}>
-            {t('nav.dashboard')}
+            {t('auth.login.submit')}
           </Button>
         </Form>
       </Card>
