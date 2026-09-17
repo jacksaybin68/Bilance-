@@ -11,6 +11,10 @@
   --color-primary: #0f172a;
   --color-primary-foreground: #f8fafc;
 
+  /* Emphasis text colour. Matches `primary` in light mode; `.dark` lightens it so
+     brand and metric text stays legible on dark surfaces. */
+  --color-ink: #0f172a;
+
   /* Accent: emerald for positive actions / green candles */
   --color-accent: #10b981;
   --color-accent-foreground: #ffffff;
@@ -69,6 +73,16 @@
   --text-secondary: #94a3b8;
   --border-default: #1e293b;
   --border-strong: #334155;
+
+  /* `--color-primary` doubles as a button surface, so it stays dark there and
+     keeps white labels readable. Emphasis *text* therefore uses its own token:
+     on a dark card the navy primary would be invisible (1:1 contrast). */
+  --color-ink: #e2e8f0;
+
+  /* On the near-black page the navy primary is effectively invisible (measured
+     fill luminance 13 against a page of 9). Promote the CTA surface to blue so
+     `bg-primary` still reads as a button; `hover:bg-blue-600` stays distinct. */
+  --color-primary: #1d4ed8;
 }
 
 html {

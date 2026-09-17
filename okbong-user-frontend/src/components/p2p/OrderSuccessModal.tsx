@@ -128,7 +128,7 @@ export function OrderSuccessModal({
             </div>
             <div className="flex justify-between text-gray-600 dark:text-gray-400">
               <span>Nội dung chuyển khoản:</span>
-              <span className="font-mono font-bold text-primary select-all">{orderId}</span>
+              <span className="font-mono font-bold text-ink select-all">{orderId}</span>
             </div>
           </div>
         )}

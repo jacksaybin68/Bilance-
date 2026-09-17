@@ -1,10 +1,11 @@
 import type { ApiErrorPayload } from '@/types/api';
+import { clearSession } from '@/lib/auth/session';
+import { tokenStore } from '@/lib/auth/tokenStore';
+
+export { tokenStore };
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ?? 'http://localhost:3000';
-
-const TOKEN_KEY = 'okbong.accessToken';
-const REFRESH_TOKEN_KEY = 'okbong.refreshToken';
 
 /** Normalised error for every failed API interaction. */
 export class ApiError extends Error {
@@ -32,38 +33,6 @@ export class ApiError extends Error {
     return Array.isArray(raw) ? raw : [raw];
   }
 }
-
-function safeRead(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function safeWrite(key: string, value: string | null): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, value);
-  } catch {
-    // Storage is optional: keep the app usable when it is unavailable.
-  }
-}
-
-export const tokenStore = {
-  getAccessToken: (): string | null => safeRead(TOKEN_KEY),
-  getRefreshToken: (): string | null => safeRead(REFRESH_TOKEN_KEY),
-  set: (accessToken: string, refreshToken?: string): void => {
-    safeWrite(TOKEN_KEY, accessToken);
-    if (refreshToken) safeWrite(REFRESH_TOKEN_KEY, refreshToken);
-  },
-  clear: (): void => {
-    safeWrite(TOKEN_KEY, null);
-    safeWrite(REFRESH_TOKEN_KEY, null);
-  },
-};
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -125,7 +94,16 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const payload = await parseBody(response);
 
-  if (!response.ok) throw toApiError(response, payload);
+  if (!response.ok) {
+    // A rejected token is not a credential worth keeping: dropping it lets the
+    // UI fall back to its signed-out state instead of retrying and showing
+    // "Unauthorized" on every authenticated screen. Auth endpoints are exempt
+    // because a 401 there means bad credentials for the submitted form.
+    if (response.status === 401 && auth && !path.startsWith('/auth/')) {
+      clearSession();
+    }
+    throw toApiError(response, payload);
+  }
 
   return payload as T;
 }

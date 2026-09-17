@@ -147,7 +147,7 @@ export default function WalletPage() {
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {t('wallet.totalBalance')}
                 </p>
-                <p className="mt-1 text-3xl font-bold text-primary">
+                <p className="mt-1 text-3xl font-bold text-ink">
                   {formatCurrency(totalBalance, locale, wallets[0]?.currency ?? 'BDSD')}
                 </p>
               </div>

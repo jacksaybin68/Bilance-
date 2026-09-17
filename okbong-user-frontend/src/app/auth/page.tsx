@@ -211,7 +211,7 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-ink hover:underline"
           >
             {mode === 'login' ? t('auth.switchToRegister') : t('auth.switchToLogin')}
           </button>

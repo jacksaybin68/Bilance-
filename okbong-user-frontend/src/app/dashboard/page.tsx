@@ -117,7 +117,7 @@ export default function DashboardPage() {
                 <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
                   {metric.label}
                 </p>
-                <p className="mt-1 text-3xl font-bold text-primary">{metric.value}</p>
+                <p className="mt-1 text-3xl font-bold text-ink">{metric.value}</p>
               </div>
             ))}
           </div>

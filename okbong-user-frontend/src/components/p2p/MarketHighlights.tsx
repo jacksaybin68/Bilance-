@@ -72,7 +72,7 @@ export function MarketHighlights({ onSelectToken, activeToken = 'USDT' }: Market
               </div>
 
               <div className="mt-2.5">
-                <span className="block text-xs font-bold text-gray-900 dark:text-gray-100 group-hover:text-primary">
+                <span className="block text-xs font-bold text-gray-900 dark:text-gray-100 group-hover:text-ink">
                   {asset.symbol}
                 </span>
                 <span className="block truncate text-[10px] text-gray-400">

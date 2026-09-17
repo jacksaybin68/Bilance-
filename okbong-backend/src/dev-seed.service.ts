@@ -17,25 +17,31 @@ interface DemoAccount {
 
 const DEMO_ACCOUNTS: DemoAccount[] = [
   {
-    email: 'user.demo@okbong.com',
-    password: 'demo123456',
+    email: 'user@gmail.com',
+    password: 'Deohieusao123@',
     fullName: 'Demo User',
     role: Role.USER,
     balance: 50000,
   },
   {
-    email: 'admin.demo@okbong.com',
-    password: 'demo123456',
+    email: 'admin@gmail.com',
+    password: 'Deohieusao123@',
     fullName: 'Demo Admin',
     role: Role.ADMIN,
     balance: 0,
   },
 ];
 
+/** Logins from earlier revisions that must not survive a credential change. */
+const RETIRED_ACCOUNT_EMAILS = ['user.demo@okbong.com', 'admin.demo@okbong.com'];
+
 /**
  * Recreates the demo logins used by the frontends when the development
- * database has none. Only runs outside production so a real deployment never
- * gains known-credential accounts.
+ * database has none. Accounts whose email already exists are refreshed rather
+ * than skipped, so changing DEMO_ACCOUNTS actually rotates the password
+ * instead of leaving the previous credentials working. Retired demo logins are
+ * removed. Only runs outside production so a real deployment never gains
+ * known-credential accounts.
  */
 @Injectable()
 export class DevSeedService implements OnApplicationBootstrap {
@@ -52,24 +58,38 @@ export class DevSeedService implements OnApplicationBootstrap {
   async onApplicationBootstrap(): Promise<void> {
     if (this.configService.get<string>('NODE_ENV') === 'production') return;
 
+    for (const email of RETIRED_ACCOUNT_EMAILS) {
+      const removed = await this.userRepository.delete({ email });
+      if (removed.affected) this.logger.log(`Removed retired demo account ${email}`);
+    }
+
     for (const account of DEMO_ACCOUNTS) {
       const email = account.email.toLowerCase();
 
-      // `passwordHash` is plain text here on purpose: UserEntity's @BeforeInsert
-      // hook hashes any value that is not already a `scrypt$...` digest.
-      let user = await this.userRepository.findOne({ where: { email } });
-      if (!user) {
-        user = await this.userRepository.save(
-          this.userRepository.create({
-            email,
-            fullName: account.fullName,
-            passwordHash: account.password,
-            role: account.role,
-            status: UserStatus.ACTIVE,
-          }),
-        );
-        this.logger.log(`Seeded demo account ${email}`);
-      }
+      // `passwordHash` is plain text here on purpose: UserEntity's @BeforeUpdate
+      // hook re-hashes any value that is not already a `scrypt$...` digest, so
+      // assigning the plain password rotates the stored digest on every boot.
+      const existing = await this.userRepository.findOne({ where: { email } });
+      const user = existing
+        ? await this.userRepository.save(
+            this.userRepository.merge(existing, {
+              fullName: account.fullName,
+              passwordHash: account.password,
+              role: account.role,
+              status: UserStatus.ACTIVE,
+            }),
+          )
+        : await this.userRepository.save(
+            this.userRepository.create({
+              email,
+              fullName: account.fullName,
+              passwordHash: account.password,
+              role: account.role,
+              status: UserStatus.ACTIVE,
+            }),
+          );
+
+      if (!existing) this.logger.log(`Seeded demo account ${email}`);
 
       const wallet = await this.walletRepository.findOne({
         where: { userId: user.id, type: WalletType.E_WALLET },

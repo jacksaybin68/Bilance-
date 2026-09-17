@@ -95,3 +95,30 @@ export function getAccessToken(): string | null {
     return null;
   }
 }
+
+/** Decodes a JWT payload without verifying it; the server remains the authority. */
+function readTokenExpiry(token: string): number | null {
+  const payload = token.split('.')[1];
+  if (!payload) return null;
+
+  try {
+    const normalised = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(window.atob(normalised)) as { exp?: unknown };
+    return typeof decoded.exp === 'number' ? decoded.exp : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when a stored session exists but its access token is missing, malformed
+ * or past `exp`. Such a session only produces 401s, so it is treated as signed
+ * out instead of leaving the console stuck on empty tables.
+ */
+export function isSessionExpired(): boolean {
+  const session = readSession();
+  if (session === null) return false;
+
+  const expiry = readTokenExpiry(session.accessToken);
+  return expiry === null || expiry * 1000 <= Date.now();
+}

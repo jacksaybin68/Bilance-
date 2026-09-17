@@ -5,6 +5,11 @@ const nextConfig = {
   // Next.js 16 uses Turbopack by default; the legacy webpack aliases were
   // replaced by the `@/*` path mapping in tsconfig.json.
   turbopack: {},
+  // The dev indicator sits at the bottom-left by default, where it overlaps the
+  // footer copyright line. Keep it out of the content corner. Dev-only.
+  devIndicators: {
+    position: 'bottom-right',
+  },
   // The browser reaches this dev server through the public runtime host, which
   // Next.js treats as cross-origin and blocks (breaking hydration). Dev-only.
   allowedDevOrigins: [

@@ -1,5 +1,5 @@
 import type { User } from '@/types/api';
-import { tokenStore } from '@/lib/api/client';
+import { tokenStore } from '@/lib/auth/tokenStore';
 import { isRecord } from '@/lib/parsers';
 import { isUserRole } from '@/types/api';
 

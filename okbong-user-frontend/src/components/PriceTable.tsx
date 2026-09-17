@@ -184,7 +184,7 @@ export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: Pri
                   {/* Symbol */}
                   <td className="py-3 pl-4 pr-2">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-ink">
                         {row.symbol.slice(0, 2)}
                       </span>
                       <span className="font-semibold text-gray-900 dark:text-gray-100">
@@ -220,7 +220,7 @@ export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: Pri
                     <td className="py-3 pl-2 pr-4 text-right">
                       <Link
                         href="/price"
-                        className="rounded-md px-2 py-1 text-xs font-medium text-primary hover:underline"
+                        className="rounded-md px-2 py-1 text-xs font-medium text-ink hover:underline"
                       >
                         {t('market.detail')}
                       </Link>

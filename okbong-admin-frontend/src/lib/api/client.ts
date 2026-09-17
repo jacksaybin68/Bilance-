@@ -2,7 +2,22 @@ export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ??
   'http://localhost:3000';
 
-import { getAccessToken } from '@/lib/auth/session';
+import { clearSession, getAccessToken } from '@/lib/auth/session';
+
+/**
+ * Clears a rejected session and sends the operator back to the login screen.
+ * Called on any 401 so an expired token cannot leave the console showing empty
+ * data as if the account had no records. Auth endpoints are exempt: a 401 there
+ * means "wrong credentials", and the login form reports that itself.
+ */
+function handleUnauthorized(path: string): void {
+  if (path.startsWith('/auth/')) return;
+
+  clearSession();
+  if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+    window.location.assign('/login');
+  }
+}
 
 /** Normalised API failure with the parsed backend error payload. */
 export class ApiError extends Error {
@@ -67,6 +82,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     const messages = readMessages(payload, response.statusText || 'Request failed');
+    if (response.status === 401) handleUnauthorized(path);
     throw new ApiError(messages[0], response.status, messages);
   }
 
@@ -110,6 +126,7 @@ export const apiClient = {
 
     if (!response.ok) {
       const messages = readMessages(payload, response.statusText || 'Request failed');
+      if (response.status === 401) handleUnauthorized(path);
       throw new ApiError(messages[0], response.status, messages);
     }
 

@@ -50,7 +50,7 @@ export function Navbar() {
             <div className="flex h-9 items-center justify-center rounded-lg bg-black px-2.5 text-lg font-black tracking-widest text-white transition-transform group-hover:scale-105 dark:bg-white dark:text-black">
               NexTrading
             </div>
-            <span className="hidden text-xs font-semibold uppercase tracking-wider text-primary sm:inline-block">
+            <span className="hidden text-xs font-semibold uppercase tracking-wider text-ink sm:inline-block">
               P2P Express
             </span>
           </Link>
@@ -110,7 +110,7 @@ export function Navbar() {
               <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">{t('nav.notifications')}</h4>
-                  <span className="text-[10px] text-primary">Đã đọc tất cả</span>
+                  <span className="text-[10px] text-ink">Đã đọc tất cả</span>
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
@@ -209,7 +209,7 @@ export function Navbar() {
           ) : (
             <Link
               href="/auth"
-              className="inline-flex items-center justify-center rounded-lg bg-black px-3.5 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
+              className="inline-flex items-center justify-center rounded-lg bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground transition-colors hover:bg-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:bg-primary dark:text-white dark:hover:bg-blue-600"
             >
               {t('nav.login')}
             </Link>

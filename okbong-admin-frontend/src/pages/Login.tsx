@@ -85,7 +85,7 @@ export function LoginPage() {
               { type: 'email', message: t('common.error') },
             ]}
           >
-            <Input prefix={<MailOutlined />} autoComplete="email" placeholder="admin@okbong.com" />
+            <Input prefix={<MailOutlined />} autoComplete="email" placeholder={t('auth.login.email.placeholder')} />
           </Form.Item>
 
           <Form.Item

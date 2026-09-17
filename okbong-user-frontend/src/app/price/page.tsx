@@ -158,7 +158,7 @@ export default function PricePage() {
                 stroke="currentColor"
                 strokeWidth={2}
                 vectorEffect="non-scaling-stroke"
-                className="text-primary"
+                className="text-ink"
               />
             </svg>
           </div>
@@ -167,7 +167,7 @@ export default function PricePage() {
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {t('price.current')}:{' '}
-            <span className="font-medium text-primary">{formatNumber(price, locale)}</span> {symbol}
+            <span className="font-medium text-ink">{formatNumber(price, locale)}</span> {symbol}
             <span
               className={
                 changePercent >= 0

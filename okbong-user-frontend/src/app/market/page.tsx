@@ -41,7 +41,7 @@ export default function MarketPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {t('bill.type.transfer')}
           </p>
-          <p className="mt-1 text-2xl font-bold text-primary">24/7</p>
+          <p className="mt-1 text-2xl font-bold text-ink">24/7</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Giao dịch liên tục, không nghỉ lễ.
           </p>
@@ -50,7 +50,7 @@ export default function MarketPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {t('wallet.deposit')} / {t('wallet.withdraw')}
           </p>
-          <p className="mt-1 text-2xl font-bold text-primary">Nhanh</p>
+          <p className="mt-1 text-2xl font-bold text-ink">Nhanh</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Xử lý trong vòng 24h làm việc.
           </p>
@@ -59,7 +59,7 @@ export default function MarketPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             Phí giao dịch
           </p>
-          <p className="mt-1 text-2xl font-bold text-primary">0%</p>
+          <p className="mt-1 text-2xl font-bold text-ink">0%</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
             Không phí ẩn.
           </p>
