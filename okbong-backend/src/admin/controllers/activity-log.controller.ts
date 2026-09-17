@@ -1,10 +1,10 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOkResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Role } from '../../enumeration/role.enum';
-import { AdminService } from '../admin.service';
+import { ActivityLogService } from '../services/activity-log.service';
 
 @ApiTags('admin/activity')
 @ApiBearerAuth()
@@ -12,11 +12,12 @@ import { AdminService } from '../admin.service';
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @Controller('admin/activity')
 export class ActivityLogController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly activityLogService: ActivityLogService) {}
 
   @Get()
   @ApiOkResponse({ description: 'Recent activity logs' })
-  async recent() {
-    return this.adminService.recentActivity();
+  async recent(@Query('limit') limit?: string) {
+    const parsed = Number(limit);
+    return this.activityLogService.recent(Number.isFinite(parsed) && parsed > 0 ? parsed : 50);
   }
 }

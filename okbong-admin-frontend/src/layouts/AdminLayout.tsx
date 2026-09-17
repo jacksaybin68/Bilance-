@@ -13,6 +13,9 @@ import {
   LogoutOutlined,
   BulbOutlined,
   TranslationOutlined,
+  SwapOutlined,
+  MessageOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 import { Button, Breadcrumb, Layout, Menu, Space, Tag, Typography } from 'antd';
 import type { MenuProps } from 'antd';
@@ -40,6 +43,9 @@ const NAV_ENTRIES: NavEntry[] = [
   { path: '/cards', labelKey: 'nav.cards', icon: <CreditCardOutlined /> },
   { path: '/bills', labelKey: 'nav.bills', icon: <FileTextOutlined /> },
   { path: '/payments', labelKey: 'nav.payments', icon: <ClockCircleOutlined /> },
+  { path: '/transactions', labelKey: 'nav.transactions', icon: <SwapOutlined /> },
+  { path: '/orders', labelKey: 'nav.orders', icon: <ProfileOutlined /> },
+  { path: '/chat', labelKey: 'nav.chat', icon: <MessageOutlined /> },
   { path: '/plans', labelKey: 'nav.plans', icon: <BookOutlined /> },
   { path: '/settings', labelKey: 'nav.settings', icon: <SettingOutlined /> },
   { path: '/activity', labelKey: 'nav.activity', icon: <AlertOutlined /> },

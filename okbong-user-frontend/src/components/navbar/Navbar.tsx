@@ -148,6 +148,17 @@ export function Navbar() {
             {t('nav.assets')}
           </Link>
 
+          {/* Hỗ trợ trực tuyến (Live support chat) */}
+          <Link
+            href="/chat"
+            className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-black dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white md:inline-flex"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4-.8L3 21l1.3-3.9A7.5 7.5 0 013 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {t('nav.chat')}
+          </Link>
+
           {/* User Profile / Auth State */}
           {authenticated ? (
             <div className="relative">
@@ -233,6 +244,9 @@ export function Navbar() {
             </Link>
             <Link href="/wallet" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
               {t('nav.assets')}
+            </Link>
+            <Link href="/chat" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
+              {t('nav.chat')}
             </Link>
           </div>
         </div>

@@ -52,13 +52,6 @@ export default function WalletPage() {
     try {
       const wallets = await walletApi.listMine();
       setWallets(wallets);
-      setTransactionErrors((prev) => {
-        const updated = new Map(prev);
-        for (const wallet of wallets) {
-          updated.set(wallet.id, undefined);
-        }
-        return updated;
-      });
       setState('ready');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('wallet.error')));

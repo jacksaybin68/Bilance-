@@ -2,11 +2,19 @@ import type {
   AuthTokens,
   Bill,
   BillFilter,
+  ChatConversation,
+  ChatMessage,
   CreateBillRequest,
+  CreateOrderRequest,
   LoginRequest,
+  Order,
+  OrderFilter,
+  PaginatedMessages,
+  PaginatedOrders,
   PaginatedTransactions,
   PricePoint,
   RegisterRequest,
+  SendMessageRequest,
   User,
   Wallet,
   WalletMutationRequest,
@@ -79,4 +87,39 @@ export const priceApi = {
     apiClient.get<number>(`/price/current${toQuery({ symbol })}`, { auth: false }),
   history: (symbol: string, limit = 100): Promise<PricePoint[]> =>
     apiClient.get<PricePoint[]>(`/price/history${toQuery({ symbol, limit })}`, { auth: false }),
+};
+
+export const chatApi = {
+  /** Returns the user's open support thread, creating it on first contact. */
+  openConversation: (payload: { subject?: string; topic?: string } = {}): Promise<ChatConversation> =>
+    apiClient.post<ChatConversation>('/chat/conversations', payload),
+  conversations: (): Promise<ChatConversation[]> =>
+    apiClient.get<ChatConversation[]>('/chat/conversations'),
+  unread: (): Promise<{ unreadMessages: number }> =>
+    apiClient.get<{ unreadMessages: number }>('/chat/unread'),
+  messages: (conversationId: string, params: { limit?: number; since?: string } = {}): Promise<PaginatedMessages> =>
+    apiClient.get<PaginatedMessages>(
+      `/chat/conversations/${conversationId}/messages${toQuery({ limit: params.limit, since: params.since })}`,
+    ),
+  send: (conversationId: string, payload: SendMessageRequest): Promise<ChatMessage> =>
+    apiClient.post<ChatMessage>(`/chat/conversations/${conversationId}/messages`, payload),
+  markRead: (conversationId: string): Promise<ChatConversation> =>
+    apiClient.post<ChatConversation>(`/chat/conversations/${conversationId}/read`, {}),
+};
+
+export const orderApi = {
+  listMine: (filter: OrderFilter = {}): Promise<PaginatedOrders> =>
+    apiClient.get<PaginatedOrders>(
+      `/orders${toQuery({
+        status: filter.status,
+        pair: filter.pair,
+        side: filter.side,
+        page: filter.page,
+        limit: filter.limit,
+      })}`,
+    ),
+  create: (payload: CreateOrderRequest): Promise<Order> =>
+    apiClient.post<Order>('/orders', payload),
+  detail: (id: string): Promise<Order> => apiClient.get<Order>(`/orders/${id}`),
+  cancel: (id: string): Promise<Order> => apiClient.post<Order>(`/orders/${id}/cancel`, {}),
 };

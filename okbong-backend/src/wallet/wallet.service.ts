@@ -90,19 +90,22 @@ export class WalletService {
       const txType = operation === 'deposit' ? TransactionType.DEPOSIT : TransactionType.WITHDRAW;
       const txStatus = TransactionStatus.COMPLETED;
 
+      // Persist the wallet first: a freshly created wallet has no id yet, and
+      // `transactions.walletId` is a non-nullable FK to it.
+      wallet.balance = nextBalance;
+      await walletRepo.save(wallet);
+
       const transaction = txRepo.create({
         walletId: wallet.id,
         userId,
         type: txType,
         status: txStatus,
         amount: Math.abs(delta),
-        balanceBefore: Number(wallet.balance),
+        balanceBefore: roundAmount(nextBalance - delta),
         balanceAfter: nextBalance,
         description: `${operation === 'deposit' ? 'Nạp tiền' : 'Rút tiền'} vào ví`,
       });
 
-      wallet.balance = nextBalance;
-      await walletRepo.save(wallet);
       await txRepo.save(transaction);
 
       return wallet;

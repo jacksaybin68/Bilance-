@@ -78,6 +78,7 @@ export interface Bill {
   id: string;
   userId: string;
   type: BillType;
+  amount: number;
   content: string;
   status: BillStatus;
   createdAt: string;
@@ -121,6 +122,131 @@ export interface WalletMutationRequest {
 export interface BillFilter {
   status?: BillStatus;
   type?: BillType;
+}
+
+/** ── Support chat (okbong-backend `src/chat`) ─────────────────────── */
+
+export type ConversationStatus = 'open' | 'pending' | 'closed';
+
+export type ConversationTopic = 'general' | 'deposit' | 'withdraw' | 'order' | 'kyc' | 'technical';
+
+export type MessageKind = 'text' | 'image' | 'file';
+
+export type MessageSenderRole = 'user' | 'admin' | 'system';
+
+export interface ChatConversation {
+  id: string;
+  userId: string;
+  subject: string;
+  topic: ConversationTopic;
+  status: ConversationStatus;
+  assignedTo?: string | null;
+  unreadForAdmin: number;
+  unreadForUser: number;
+  lastMessageAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderRole: MessageSenderRole;
+  kind: MessageKind;
+  body: string;
+  attachment?: string | null;
+  readByAdmin: boolean;
+  readByUser: boolean;
+  createdAt: string;
+}
+
+export interface PaginatedMessages {
+  items: ChatMessage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface SendMessageRequest {
+  body: string;
+  kind?: MessageKind;
+  attachment?: string;
+}
+
+/** ── Orders (okbong-backend `src/order`) ──────────────────────────── */
+
+export type OrderSide = 'buy' | 'sell';
+
+export type OrderType = 'LIMIT' | 'MARKET';
+
+export type OrderStatus =
+  | 'PENDING'
+  | 'MATCHING'
+  | 'MATCHED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+
+export interface Order {
+  id: string;
+  userId: string;
+  pair: string;
+  side: OrderSide;
+  type: OrderType;
+  amount: number;
+  price: number;
+  filledAmount: number;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateOrderRequest {
+  pair: string;
+  side: OrderSide;
+  amount: number;
+  price: number;
+  type?: OrderType;
+}
+
+export interface OrderFilter {
+  status?: OrderStatus;
+  pair?: string;
+  side?: OrderSide;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedOrders {
+  items: Order[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export const ORDER_STATUSES: readonly OrderStatus[] = [
+  'PENDING',
+  'MATCHING',
+  'MATCHED',
+  'COMPLETED',
+  'CANCELLED',
+  'EXPIRED',
+];
+
+export const CONVERSATION_TOPICS: readonly ConversationTopic[] = [
+  'general',
+  'deposit',
+  'withdraw',
+  'order',
+  'kyc',
+  'technical',
+];
+
+export function isOrderStatus(value: unknown): value is OrderStatus {
+  return typeof value === 'string' && (ORDER_STATUSES as readonly string[]).includes(value);
 }
 
 /** Shape returned by okbong-backend's global exception filter. */

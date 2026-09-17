@@ -29,8 +29,8 @@ export class OrderEntity {
   price!: number;
 
   @Column({
-    type: 'enum',
-    enum: OrderType,
+    type: 'varchar',
+    length: 10,
     default: OrderType.LIMIT,
   })
   type!: OrderType;

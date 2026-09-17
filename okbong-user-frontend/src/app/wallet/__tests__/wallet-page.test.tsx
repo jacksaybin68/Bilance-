@@ -23,6 +23,7 @@ function makeWallet(overrides: Partial<Wallet> = {}): Wallet {
     currency: 'VND',
     status: 'active',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
