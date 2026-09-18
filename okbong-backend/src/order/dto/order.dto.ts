@@ -12,5 +12,5 @@ export enum OrderStatus {
 
 export class OrderStatusDto {
   @ApiProperty({ enum: OrderStatus })
-  status: OrderStatus;
+  status!: OrderStatus;
 }

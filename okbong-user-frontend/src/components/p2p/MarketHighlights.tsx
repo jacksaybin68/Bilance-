@@ -13,12 +13,12 @@ export interface TrendingAsset {
 }
 
 export const TRENDING_ASSETS: TrendingAsset[] = [
-  { symbol: 'USDT', name: 'Tether USD', priceVnd: 25450, change24h: 0.05, iconBg: 'bg-emerald-500', iconChar: '₮' },
-  { symbol: 'BTC', name: 'Bitcoin', priceVnd: 1633890000, change24h: 2.84, iconBg: 'bg-amber-500', iconChar: '₿' },
-  { symbol: 'ETH', name: 'Ethereum', priceVnd: 87802500, change24h: -1.26, iconBg: 'bg-indigo-500', iconChar: 'Ξ' },
-  { symbol: 'SOL', name: 'Solana', priceVnd: 3868400, change24h: 6.42, iconBg: 'bg-purple-500', iconChar: 'S' },
-  { symbol: 'DOGE', name: 'Dogecoin', priceVnd: 3181, change24h: 4.18, iconBg: 'bg-yellow-500', iconChar: 'Ð' },
-  { symbol: 'ZEC', name: 'Zcash', priceVnd: 827125, change24h: -0.85, iconBg: 'bg-orange-500', iconChar: 'Z' },
+  { symbol: 'USDT', name: 'Tether USD', priceVnd: 0, change24h: 0.05, iconBg: 'bg-emerald-500', iconChar: '₮' },
+  { symbol: 'BTC', name: 'Bitcoin', priceVnd: 0, change24h: 2.84, iconBg: 'bg-amber-500', iconChar: '₿' },
+  { symbol: 'ETH', name: 'Ethereum', priceVnd: 0, change24h: -1.26, iconBg: 'bg-indigo-500', iconChar: 'Ξ' },
+  { symbol: 'SOL', name: 'Solana', priceVnd: 0, change24h: 6.42, iconBg: 'bg-purple-500', iconChar: 'S' },
+  { symbol: 'DOGE', name: 'Dogecoin', priceVnd: 0, change24h: 4.18, iconBg: 'bg-yellow-500', iconChar: 'Ð' },
+  { symbol: 'ZEC', name: 'Zcash', priceVnd: 0, change24h: -0.85, iconBg: 'bg-orange-500', iconChar: 'Z' },
 ];
 
 interface MarketHighlightsProps {

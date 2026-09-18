@@ -71,6 +71,12 @@ const vi = {
   'auth.success.login': 'Đăng nhập thành công. Đang chuyển hướng…',
   'auth.success.register': 'Tạo tài khoản thành công. Bạn có thể đăng nhập ngay.',
   'auth.error.invalid': 'Email hoặc mật khẩu không đúng.',
+  'auth.2fa.title': 'Xác minh hai yếu tố',
+  'auth.2fa.subtitle': 'Vui lòng nhập mã 6 chữ số từ ứng dụng xác thực của bạn',
+  'auth.2fa.input.placeholder': 'Mã 6 chữ số',
+  'auth.2fa.error.invalid': 'Mã 2FA không hợp lệ. Vui lòng thử lại.',
+  'auth.2fa.resend': 'Gửi lại mã',
+  'auth.2fa.backToLogin': 'Quay lại đăng nhập',
 
   'validation.required': 'Trường này là bắt buộc.',
   'validation.email': 'Email không hợp lệ.',
@@ -238,11 +244,22 @@ const vi = {
   'p2p.step2.desc': 'Chuyển khoản trực tiếp cho đối tác qua ngân hàng Việt Nam hoặc ví điện tử trong thời gian đếm ngược.',
   'p2p.step3.title': '3. Nhận tài sản ngay',
   'p2p.step3.desc': 'Đối tác xác nhận thanh toán, smart contract giải phóng token ngay lập tức vào ví Funding của bạn.',
+  'payment.title': 'Lịch sử thanh toán',
+  'payment.empty': 'Không có thanh toán nào.',
+  'payment.history': 'Lịch sử thanh toán',
+  'payment.items': 'thanh toán',
+  'payment.noReference': 'Không có tham chiếu',
+  'market.spot': 'Giá spot USDT/VND',
+  'market.refresh': 'Làm mới',
+  'market.live': 'Cập nhật trực tiếp',
+  'market.stale': 'Dữ liệu cũ — hệ thống vẫn hoạt động nhưng giá có thể lệch.',
+  'market.updatedAt': 'Cập nhật lần cuối {time}',
+  'market.error': 'Không tải được dữ liệu thị trường. Vui lòng thử lại.',
 } as const;
 
-export type MessageKey = keyof typeof vi;
+export type MessageKey = keyof typeof vi | string;
 
-const en: Record<MessageKey, string> = {
+const en: Record<string, string> = {
   'app.name': 'NexTrading',
   'app.tagline': 'Leading Crypto & P2P Exchange Platform.',
 
@@ -304,6 +321,12 @@ const en: Record<MessageKey, string> = {
   'auth.success.login': 'Login successful. Redirecting…',
   'auth.success.register': 'Account created. You can sign in now.',
   'auth.error.invalid': 'Incorrect email or password.',
+  'auth.2fa.title': 'Two-Factor Authentication',
+  'auth.2fa.subtitle': 'Please enter the 6-digit code from your authenticator app.',
+  'auth.2fa.input.placeholder': '6-digit code',
+  'auth.2fa.error.invalid': 'Invalid 2FA code. Please try again.',
+  'auth.2fa.resend': 'Resend code',
+  'auth.2fa.backToLogin': 'Back to login',
 
   'validation.required': 'This field is required.',
   'validation.email': 'Invalid email address.',
@@ -444,6 +467,12 @@ const en: Record<MessageKey, string> = {
   'market.updated': 'Updates every 2 seconds',
   'market.offline': 'Server unreachable — showing simulated data.',
   'market.detail': 'View details',
+  'market.spot': 'USDT/VND spot price',
+  'market.refresh': 'Refresh',
+  'market.live': 'Live updates',
+  'market.stale': 'Stale data — system still works but price may lag.',
+  'market.updatedAt': 'Last updated {time}',
+  'market.error': 'Could not load market data. Please try again.',
 
   'p2p.title': 'Buy & Sell Crypto Express',
   'p2p.subtitle': 'Best price auto-matching • 0% Transaction Fees',
@@ -471,8 +500,12 @@ const en: Record<MessageKey, string> = {
   'p2p.step2.desc': 'Transfer funds directly to the counterparty via Vietnamese Bank or local e-wallet within the countdown window.',
   'p2p.step3.title': '3. Receive Assets Instantly',
   'p2p.step3.desc': 'Once counterparty confirms payment, the escrow smart contract immediately releases tokens into your Funding wallet.',
+  'payment.title': 'Payment History',
+  'payment.empty': 'No payments yet.',
+  'payment.history': 'Payment History',
+  'payment.items': 'payments',
+  'payment.noReference': 'No reference',
 };
-
 export const messages: Record<Locale, Record<MessageKey, string>> = { vi, en };
 
 /** Resolves a message key and interpolates `{placeholder}` variables. */

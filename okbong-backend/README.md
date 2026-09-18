@@ -11,11 +11,18 @@
 ## Run
 
 ```bash
-docker compose up -d
+docker compose up -d postgres redis api
 # First boot: runs migrations via autoLoadEntities (dev only)
 # Seed the DB:
 docker compose exec api npm run seed
 ```
+
+## Notes
+
+- `worker` service was removed from compose because no `src/worker.ts` exists in the
+  repo; the API handles queue processing via BullMQ/in-memory fallback inside the
+  main process. If a dedicated worker process is needed later, add `src/worker.ts`
+  and re-enable the service.
 
 ## Environment
 

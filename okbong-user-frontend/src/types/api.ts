@@ -11,18 +11,18 @@ export type WalletType = 'e-wallet' | 'bank';
 
 export type WalletStatus = 'active' | 'pending' | 'verified' | 'blocked';
 
-export type BillType = 'transfer' | 'e-wallet' | 'fluctuation' | 'priority';
+export type BillType = 'recurring' | 'payment' | 'charging';
 
-export type BillStatus = 'draft' | 'pending' | 'processing' | 'completed' | 'cancelled';
+export type BillStatus = 'pending' | 'paid' | 'cancelled';
 
 export interface User {
   id: string;
   email: string;
   fullName?: string | null;
-  role: Role;
-  status: UserStatus;
-  createdAt: string;
-  updatedAt: string;
+  role?: Role;
+  status?: UserStatus;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Wallet {
@@ -33,7 +33,6 @@ export interface Wallet {
   currency: string;
   status: WalletStatus;
   createdAt: string;
-  updatedAt: string;
 }
 
 export type TransactionType = 'deposit' | 'withdraw' | 'transfer_in' | 'transfer_out' | 'fee' | 'adjustment';
@@ -43,28 +42,17 @@ export type TransactionStatus = 'pending' | 'completed' | 'failed' | 'reversed';
 export interface Transaction {
   id: string;
   walletId: string;
-  userId: string;
   type: TransactionType;
-  status: TransactionStatus;
   amount: number;
-  feeAmount?: number | null;
-  balanceBefore: number;
-  balanceAfter: number;
-  reference?: string | null;
+  status: TransactionStatus;
   description?: string | null;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface TransactionQuery {
-  walletType?: WalletType;
-  walletId?: string;
-  userId?: string;
   type?: TransactionType;
   status?: TransactionStatus;
-  minAmount?: number;
-  maxAmount?: number;
-  reference?: string;
   limit?: number;
   offset?: number;
 }
@@ -77,10 +65,13 @@ export interface PaginatedTransactions {
 export interface Bill {
   id: string;
   userId: string;
+  amount: number;
   type: BillType;
-  content: string;
   status: BillStatus;
+  content?: string | null;
+  description?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface PricePoint {
@@ -91,8 +82,14 @@ export interface PricePoint {
 
 export interface AuthTokens {
   accessToken: string;
-  refreshToken?: string;
-  expiresIn?: number | string;
+  refreshToken: string;
+  expiresIn: string;
+}
+
+export interface TwoFaChallengeResult {
+  requires2FA: boolean;
+  sessionId: string;
+  pendingSetup: boolean;
 }
 
 export interface LoginRequest {
@@ -107,43 +104,32 @@ export interface RegisterRequest {
 }
 
 export interface CreateBillRequest {
+  amount: number;
   type: BillType;
-  content: string;
-  reference?: string;
+  description?: string;
 }
 
 export interface WalletMutationRequest {
   userId: string;
   amount: number;
-  type?: WalletType;
+  type: WalletType;
 }
 
 export interface BillFilter {
   status?: BillStatus;
   type?: BillType;
+  page?: number;
+  limit?: number;
+  [key: string]: string | number | undefined;
 }
 
 /** Shape returned by okbong-backend's global exception filter. */
 export interface ApiErrorPayload {
-  statusCode: number;
   message: string | string[];
-  error?: string;
-  path?: string;
-  timestamp?: string;
+  details?: Record<string, unknown>;
 }
-
-export const BILL_TYPES: readonly BillType[] = [
-  'transfer',
-  'e-wallet',
-  'fluctuation',
-  'priority',
-];
 
 export const USER_ROLES: readonly Role[] = ['super_admin', 'admin', 'moderator', 'user'];
-
-export function isBillType(value: unknown): value is BillType {
-  return typeof value === 'string' && (BILL_TYPES as readonly string[]).includes(value);
-}
 
 export function isUserRole(value: unknown): value is Role {
   return typeof value === 'string' && (USER_ROLES as readonly string[]).includes(value);

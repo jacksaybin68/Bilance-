@@ -7,6 +7,8 @@ import { LanguageToggle } from '@/components/language-toggle/LanguageToggle';
 import { ThemeToggle } from '@/components/theme-toggle/ThemeToggle';
 import { useI18n } from '@/lib/i18n';
 import { clearSession, getStoredUser, isAuthenticated } from '@/lib/auth/session';
+import { findCoin } from '@/lib/market/types';
+import { useMarketData } from '@/lib/market/useMarketData';
 
 export function Navbar() {
   const { t } = useI18n();
@@ -40,6 +42,10 @@ export function Navbar() {
 
   const isExpressActive = pathname === '/' || pathname === '/landing';
   const isP2PActive = pathname === '/p2p' || pathname === '/market';
+
+  // Tỷ giá tham chiếu USDT/VND lấy từ API thị trường (không hardcode).
+  const { coins, isStale, meta, refresh } = useMarketData({ refreshMs: 30_000 });
+  const usdtVnd = findCoin(coins, 'USDT')?.price ?? null;
 
   return (
     <nav className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/95 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/95">
@@ -83,10 +89,14 @@ export function Navbar() {
 
         {/* Right: Menu người dùng & Cài đặt */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Currency Display Badge */}
+          {/* Tỷ giá tham chiếu thật (USDT/VND) */}
           <div className="hidden items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300 md:flex">
-            <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-            <span>VND (₫)</span>
+            <span
+              className={`h-2 w-2 rounded-full ${isStale ? 'bg-amber-500' : 'animate-pulse bg-emerald-500'}`}
+            />
+            <span>
+              {usdtVnd === null ? 'VND (₫)' : `1 USDT ≈ ${Math.round(usdtVnd).toLocaleString('vi-VN')} ₫`}
+            </span>
           </div>
 
           <LanguageToggle />
@@ -110,18 +120,34 @@ export function Navbar() {
               <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                 <div className="mb-2 flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">{t('nav.notifications')}</h4>
-                  <span className="text-[10px] text-primary">Đã đọc tất cả</span>
+                  <button
+                    type="button"
+                    onClick={refresh}
+                    className="text-[10px] font-semibold text-primary hover:underline"
+                  >
+                    {t('market.refresh')}
+                  </button>
                 </div>
-                <div className="space-y-2 text-xs">
-                  <div className="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">Bảo chứng Escrow kích hoạt</p>
-                    <p className="text-gray-500 dark:text-gray-400">Giao dịch P2P qua ngân hàng Việt Nam hiện được bảo chứng 100% an toàn.</p>
+                {/* Chỉ hiển thị dữ liệu thật; không có nguồn thì nói rõ là trống. */}
+                {usdtVnd === null ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{t('common.empty')}</p>
+                ) : (
+                  <div className="rounded-lg bg-gray-50 p-2.5 text-xs dark:bg-gray-800/60">
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">{t('market.spot')}</p>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      1 USDT ≈ {Math.round(usdtVnd).toLocaleString('vi-VN')} ₫
+                    </p>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      {isStale
+                        ? t('market.stale')
+                        : meta.updatedAt
+                          ? t('market.updatedAt', {
+                              time: new Date(meta.updatedAt).toLocaleTimeString('vi-VN'),
+                            })
+                          : t('market.live')}
+                    </p>
                   </div>
-                  <div className="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">Tỷ giá VND cập nhật</p>
-                    <p className="text-gray-500 dark:text-gray-400">Tỷ giá tham chiếu USDT/VND vừa khớp giá tốt nhất 25.450 ₫.</p>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -162,16 +188,20 @@ export function Navbar() {
                 <span className="hidden max-w-[100px] truncate text-xs font-semibold sm:inline-block">
                   {user?.email?.split('@')[0] ?? 'User'}
                 </span>
-                <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  KYC 1
-                </span>
+                {user?.role ? (
+                  <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] font-bold uppercase text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                    {user.role}
+                  </span>
+                ) : null}
               </button>
 
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-800 dark:bg-gray-900">
                   <div className="border-b border-gray-100 px-3 py-2 text-xs dark:border-gray-800">
                     <p className="font-semibold text-gray-900 dark:text-gray-100">{user?.email}</p>
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã xác minh KYC Cấp 1</p>
+                    <p className="text-[10px] uppercase text-gray-500 dark:text-gray-400">
+                      {user?.role ?? ''}
+                    </p>
                   </div>
                   <Link
                     href="/dashboard"

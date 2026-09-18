@@ -1,4 +1,3 @@
-import { findBillType, parseAmount } from '@/lib/parsers';
 import type { MessageKey } from '@/lib/i18n/messages';
 
 export type TFunction = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -6,7 +5,6 @@ export type TFunction = (key: MessageKey, vars?: Record<string, string | number>
 export type FieldErrors<T extends string> = Partial<Record<T, string>>;
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const AMOUNT_MAX = 1_000_000_000;
 
 export function validateEmail(value: string, t: TFunction): string | undefined {
   const trimmed = value.trim();
@@ -62,40 +60,10 @@ export function validateRegisterForm(
   return errors;
 }
 
-export interface BillFormValues {
-  type: string;
-  amount: string;
-  content: string;
-}
-
-export type BillField = keyof BillFormValues;
-
-export function validateBillForm(values: BillFormValues, t: TFunction): FieldErrors<BillField> {
-  const errors: FieldErrors<BillField> = {};
-
-  if (!findBillType(values.type)) {
-    errors.type = t('validation.required');
-  }
-
-  const amount = parseAmount(values.amount);
-  if (amount === null) {
-    errors.amount = t('validation.amount.invalid');
-  } else if (amount > AMOUNT_MAX) {
-    errors.amount = t('validation.amount.max');
-  }
-
-  const content = values.content.trim();
-  if (content.length === 0) {
-    errors.content = t('validation.required');
-  } else if (content.length < 3) {
-    errors.content = t('validation.content.min');
-  } else if (content.length > 255) {
-    errors.content = t('validation.content.max');
-  }
-
-  return errors;
-}
-
+/**
+ * Chỉ kiểm tra định dạng PIN. Việc đối chiếu PIN thật thuộc backend —
+ * frontend không giữ mã PIN nào (xem `docs` nếu cần bổ sung luồng xác thực).
+ */
 export function validatePin(value: string, t: TFunction): string | undefined {
   if (value.trim().length === 0) return t('validation.required');
   if (!/^\d{4}$/.test(value.trim())) return t('validation.pin.length');
