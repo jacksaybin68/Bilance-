@@ -11,11 +11,16 @@ const COLOR_BY_STATUS: Record<string, string> = {
   running: 'processing',
   processing: 'processing',
   pending: 'warning',
+  paid: 'success',
+  published: 'success',
   draft: 'default',
+  archived: 'default',
   inactive: 'default',
   banned: 'error',
   blocked: 'error',
   rejected: 'error',
+  failed: 'error',
+  reversed: 'error',
   cancelled: 'error',
 };
 

@@ -32,6 +32,7 @@ export class UserEntity {
   role!: Role;
 
   @Column({ type: 'varchar', length: 64, nullable: true })
+  @Exclude()
   twoFactorSecret?: string | null;
 
   @Column({ type: 'boolean', default: false })

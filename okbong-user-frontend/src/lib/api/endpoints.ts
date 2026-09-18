@@ -2,11 +2,17 @@ import type {
   AuthTokens,
   Bill,
   BillFilter,
+  ChatMessage,
   CreateBillRequest,
+  CreateOrderRequest,
   LoginRequest,
+  Order,
+  OrderQuery,
+  PaginatedOrders,
   PaginatedTransactions,
   PricePoint,
   RegisterRequest,
+  SendChatMessageRequest,
   User,
   Wallet,
   WalletMutationRequest,
@@ -79,4 +85,25 @@ export const priceApi = {
     apiClient.get<number>(`/price/current${toQuery({ symbol })}`, { auth: false }),
   history: (symbol: string, limit = 100): Promise<PricePoint[]> =>
     apiClient.get<PricePoint[]>(`/price/history${toQuery({ symbol, limit })}`, { auth: false }),
+};
+
+export const orderApi = {
+  create: (payload: CreateOrderRequest): Promise<Order> =>
+    apiClient.post<Order>('/orders', payload),
+  mine: (params: OrderQuery = {}): Promise<PaginatedOrders> =>
+    apiClient.get<PaginatedOrders>(
+      `/orders/mine${toQuery({
+        side: params.side,
+        status: params.status,
+        page: params.page,
+        limit: params.limit,
+      })}`,
+    ),
+  detail: (id: string): Promise<Order> => apiClient.get<Order>(`/orders/${id}`),
+};
+
+export const chatApi = {
+  history: (): Promise<ChatMessage[]> => apiClient.get<ChatMessage[]>('/chat'),
+  send: (payload: SendChatMessageRequest): Promise<ChatMessage> =>
+    apiClient.post<ChatMessage>('/chat/message', payload),
 };

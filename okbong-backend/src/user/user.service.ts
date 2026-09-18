@@ -1,4 +1,11 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  Logger,
+  NotFoundException,
+  OnApplicationBootstrap,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { hashPassword } from '../common/utils/password.util';
@@ -12,11 +19,41 @@ export interface PaginatedResult<T> {
 }
 
 @Injectable()
-export class UserService {
+export class UserService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Creates the first super admin from ADMIN_EMAIL/ADMIN_PASSWORD when the
+   * database has none. Public registration always forces Role.USER, so without
+   * this there is no way to obtain an initial admin account.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    const email = this.configService.get<string>('ADMIN_EMAIL')?.toLowerCase().trim();
+    const password = this.configService.get<string>('ADMIN_PASSWORD');
+    if (!email || !password) return;
+
+    const admins = await this.userRepository.count({
+      where: [{ role: Role.SUPER_ADMIN }, { role: Role.ADMIN }],
+    });
+    if (admins > 0) return;
+
+    const existing = await this.findByEmail(email);
+    if (existing) {
+      existing.role = Role.SUPER_ADMIN;
+      await this.userRepository.save(existing);
+      this.logger.log(`Promoted ${email} to super_admin`);
+      return;
+    }
+
+    await this.create({ email, password, role: Role.SUPER_ADMIN, status: UserStatus.ACTIVE });
+    this.logger.log(`Bootstrapped super admin ${email}`);
+  }
 
   async findByEmail(email: string): Promise<UserEntity | null> {
     return this.userRepository.findOne({ where: { email: email.toLowerCase().trim() } });

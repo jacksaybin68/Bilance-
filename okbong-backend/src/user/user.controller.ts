@@ -31,7 +31,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { Role } from '../enumeration/role.enum';
 import { CreateUserDto, UpdateUserDto, UserQueryDto } from './dto/user.dto';
-import { UserEntity } from './entity/user.entity';
+import { UserEntity, UserStatus } from './entity/user.entity';
 import { UserService } from './user.service';
 
 @ApiTags('users')
@@ -47,7 +47,13 @@ export class UserController {
   @ApiOperation({ summary: 'Register a new user' })
   @ApiCreatedResponse({ description: 'The created user (password hash excluded)' })
   create(@Body() createUserDto: CreateUserDto): Promise<UserEntity> {
-    return this.userService.create(createUserDto);
+    // Public registration always creates a plain active user: role/status from
+    // the payload are ignored so nobody can self-assign an admin role.
+    return this.userService.create({
+      ...createUserDto,
+      role: Role.USER,
+      status: UserStatus.ACTIVE,
+    });
   }
 
   @Post('login')
@@ -67,7 +73,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List users (paginated, X-Total-Count header)' })
@@ -81,7 +87,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Get(':id')
   @ApiBearerAuth()
   @ApiOkResponse({ description: 'A single user' })
@@ -90,7 +96,7 @@ export class UserController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @Put(':id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a user (admin only)' })

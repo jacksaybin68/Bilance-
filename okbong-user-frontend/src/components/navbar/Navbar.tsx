@@ -128,13 +128,24 @@ export function Navbar() {
 
           {/* Lệnh của tôi (Orders) */}
           <Link
-            href="/dashboard"
+            href="/orders"
             className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-black dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white md:inline-flex"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             {t('nav.orders')}
+          </Link>
+
+          {/* Hỗ trợ (Chat) */}
+          <Link
+            href="/chat"
+            className="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-black dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white md:inline-flex"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M8 10h8m-8 4h5m-9-8V6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H9l-4 4V6z" />
+            </svg>
+            {t('nav.chat')}
           </Link>
 
           {/* Tài sản (Assets) */}
@@ -174,16 +185,22 @@ export function Navbar() {
                     <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã xác minh KYC Cấp 1</p>
                   </div>
                   <Link
-                    href="/dashboard"
+                    href="/orders"
                     className="mt-1 block rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
-                    {t('nav.profile')}
+                    {t('nav.orders')}
                   </Link>
                   <Link
                     href="/wallet"
                     className="block rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   >
                     {t('nav.assets')}
+                  </Link>
+                  <Link
+                    href="/chat"
+                    className="block rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                  >
+                    {t('nav.chat')}
                   </Link>
                   <button
                     type="button"
@@ -230,6 +247,9 @@ export function Navbar() {
             </Link>
             <Link href="/dashboard" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
               {t('nav.orders')}
+            </Link>
+            <Link href="/chat" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
+              {t('nav.chat')}
             </Link>
             <Link href="/wallet" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
               {t('nav.assets')}
