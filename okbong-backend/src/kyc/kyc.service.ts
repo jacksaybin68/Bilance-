@@ -18,16 +18,16 @@ export class KycService {
     private readonly queueService: QueueService,
   ) {}
 
-  async create(dto: CreateKycDto): Promise<KycEntity> {
+  async create(userId: string, dto: CreateKycDto): Promise<KycEntity> {
     const existing = await this.kycRepository.findOne({
-      where: { userId: dto.userId, status: KYCStatus.PENDING },
+      where: { userId, status: KYCStatus.PENDING },
     });
     if (existing) {
       throw new BadRequestException('A pending KYC submission already exists for this user');
     }
 
     const kyc = this.kycRepository.create({
-      userId: dto.userId,
+      userId,
       frontImage: dto.frontImage ?? null,
       backImage: dto.backImage ?? null,
       selfieImage: dto.selfieImage ?? null,
@@ -41,7 +41,7 @@ export class KycService {
     this.validateImage(dto.selfieImage, 'selfieImage');
 
     const saved = await this.kycRepository.save(kyc);
-    this.logger.log(`KYC submitted: ${saved.id} for user ${dto.userId}`);
+    this.logger.log(`KYC submitted: ${saved.id} for user ${userId}`);
     return saved;
   }
 

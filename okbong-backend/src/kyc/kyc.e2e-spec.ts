@@ -13,6 +13,7 @@ import { KycEntity, KYCStatus } from './entities/kyc.entity';
 import { CreateKycDto, KycStatusUpdateDto, KycQueryDto } from './dto/kyc.dto';
 import { KycController } from './kyc.controller';
 import { KycService } from './kyc.service';
+import { QueueService } from '../queue/queue.service';
 import { UserModule } from '../user/user.module';
 import { forwardRef } from '@nestjs/common';
 
@@ -30,9 +31,16 @@ type MockKycRepo = {
   save: ReturnType<typeof vi.fn>;
 };
 
+function uuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 function buildKyc(overrides: Partial<KycEntity> = {}): KycEntity {
   return {
-    id: 'kyc-' + Math.random().toString(36).slice(2, 10),
+    id: uuid(),
     userId: USER_ID,
     status: KYCStatus.PENDING,
     frontImage: null,
@@ -87,7 +95,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       save: vi.fn(async (entity: KycEntity) => {
         const clone = {
           ...entity,
-          id: entity.id ?? `kyc-${Date.now()}-${Math.random()}`,
+          id: entity.id ?? uuid(),
           submittedAt: entity.submittedAt ?? new Date(),
           updatedAt: new Date(),
         } as KycEntity;
@@ -108,6 +116,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       providers: [
         KycService,
         { provide: getRepositoryToken(KycEntity), useValue: kycRepo },
+        { provide: QueueService, useValue: { add: vi.fn().mockResolvedValue({ id: 'job' }) } },
         mockUserModule,
       ],
     })
@@ -147,6 +156,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       providers: [
         KycService,
         { provide: getRepositoryToken(KycEntity), useValue: kycRepo },
+        { provide: QueueService, useValue: { add: vi.fn().mockResolvedValue({ id: 'job' }) } },
         mockUserModule,
       ],
     })
@@ -191,6 +201,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
           useValue: { get: (_key: string, def?: string) => def ?? 'okbong-secret-key' },
         },
         { provide: getRepositoryToken(KycEntity), useValue: kycRepo },
+        { provide: QueueService, useValue: { add: vi.fn().mockResolvedValue({ id: 'job' }) } },
         { provide: UserModule, useValue: {} },
       ],
     }).compile();
@@ -236,7 +247,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
     kycRepo.save.mockImplementation(async (entity: KycEntity) => {
       const clone = {
         ...entity,
-        id: entity.id ?? `kyc-${Date.now()}-${Math.random()}`,
+        id: entity.id ?? uuid(),
         submittedAt: entity.submittedAt ?? new Date(),
         updatedAt: new Date(),
       } as KycEntity;
@@ -251,24 +262,23 @@ describe('KYC E2E — Submit & Admin Approve', () => {
   describe('POST /kyc — Submit KYC (USER)', () => {
     it('201: submit KYC thành công, status = PENDING', async () => {
       const dto: CreateKycDto = {
-        userId: USER_ID,
-        frontImage: 'front-url',
-        backImage: 'back-url',
-        selfieImage: 'selfie-url',
+        frontImage: 'https://cdn.test/front.jpg',
+        backImage: 'https://cdn.test/back.jpg',
+        selfieImage: 'https://cdn.test/selfie.jpg',
         idNumber: '123456789',
         documentName: 'CCCD',
       };
       const res = await request(appAdmin.getHttpServer()).post('/kyc').send(dto).expect(201);
       expect(res.body.status).toBe(KYCStatus.PENDING);
-      expect(res.body.userId).toBe(USER_ID);
-      expect(res.body.frontImage).toBe('front-url');
+      expect(res.body.userId).toBe(ADMIN_ID);
+      expect(res.body.frontImage).toBe('https://cdn.test/front.jpg');
       expect(res.body.idNumber).toBe('123456789');
     });
 
     it('frontImage/backImage/selfieImage/idNumber/documentName = null khi không truyền', async () => {
       const res = await request(appAdmin.getHttpServer())
         .post('/kyc')
-        .send({ userId: USER_ID })
+        .send({})
         .expect(201);
       expect(res.body.frontImage).toBeNull();
       expect(res.body.backImage).toBeNull();
@@ -277,19 +287,24 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       expect(res.body.documentName).toBeNull();
     });
 
-    it('400: submit KYC với userId đã có pending → duplicate error', async () => {
+    it('400: submit KYC khi user đã có pending → duplicate error', async () => {
       kycStore.set(
-        'kyc-pending',
-        buildKyc({ userId: USER_ID, status: KYCStatus.PENDING }),
+        uuid(),
+        buildKyc({ userId: ADMIN_ID, status: KYCStatus.PENDING }),
       );
       await request(appAdmin.getHttpServer())
         .post('/kyc')
-        .send({ userId: USER_ID, frontImage: 'new-front' })
+        .send({ frontImage: 'https://cdn.test/new-front.jpg' })
         .expect(400);
     });
 
-    it('400: userId không được để trống (class-validator IsString)', async () => {
-      await request(appAdmin.getHttpServer()).post('/kyc').send({ frontImage: 'img' }).expect(400);
+    it('bỏ qua userId trong body — luôn dùng user từ token', async () => {
+      const res = await request(appAdmin.getHttpServer())
+        .post('/kyc')
+        .send({ userId: OTHER_USER, frontImage: 'https://cdn.test/img.jpg' })
+        .expect(201);
+      expect(res.body.userId).toBe(ADMIN_ID);
+      expect(kycStore.has(res.body.id)).toBe(true);
     });
   });
 
@@ -317,7 +332,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body).toHaveLength(3);
       // Phần tử đầu tiên phải là mới nhất
-      expect(res.body[0].submittedAt.getTime()).toBeGreaterThanOrEqual(res.body[1].submittedAt.getTime());
+      expect(Date.parse(res.body[0].submittedAt)).toBeGreaterThanOrEqual(Date.parse(res.body[1].submittedAt));
     });
 
     it('lọc theo status=PENDING', async () => {
@@ -352,7 +367,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
   // =========================================================================
   describe('GET /kyc/:id — Tìm KYC theo ID (ADMIN)', () => {
     it('200: tìm thấy KYC', async () => {
-      const kyc = buildKyc({ id: 'kyc-found', userId: USER_ID });
+      const kyc = buildKyc({ userId: USER_ID });
       kycStore.set(kyc.id, kyc);
       const res = await request(appAdmin.getHttpServer()).get(`/kyc/${kyc.id}`).expect(200);
       expect(res.body.id).toBe(kyc.id);
@@ -382,10 +397,10 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       const res = await request(appAdmin.getHttpServer())
         .post(`/kyc/${kyc.id}/status`)
         .send(dto)
-        .expect(200);
+        .expect(201);
 
       expect(res.body.status).toBe(KYCStatus.APPROVED);
-      expect(res.body.reviewedBy).toBe('system'); // theo controller gọi service với reviewerId='system'
+      expect(res.body.reviewedBy).toBe(ADMIN_ID);
       expect(res.body.rejectReason).toBeNull();
     });
 
@@ -400,11 +415,11 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       const res = await request(appAdmin.getHttpServer())
         .post(`/kyc/${kyc.id}/status`)
         .send(dto)
-        .expect(200);
+        .expect(201);
 
       expect(res.body.status).toBe(KYCStatus.REJECTED);
       expect(res.body.rejectReason).toBe('Sai thông tin identity');
-      expect(res.body.reviewedBy).toBe('system');
+      expect(res.body.reviewedBy).toBe(ADMIN_ID);
     });
 
     it('UNDER_REVIEW → APPROVED', async () => {
@@ -415,7 +430,7 @@ describe('KYC E2E — Submit & Admin Approve', () => {
       const res = await request(appAdmin.getHttpServer())
         .post(`/kyc/${kyc.id}/status`)
         .send(dto)
-        .expect(200);
+        .expect(201);
 
       expect(res.body.status).toBe(KYCStatus.APPROVED);
     });
@@ -441,9 +456,10 @@ describe('KYC E2E — Submit & Admin Approve', () => {
     });
 
     it('400: status không hợp lệ (không thuộc enum)', async () => {
-      kycStore.set(buildKyc({ id: 'kyc-bad-status' }).id, buildKyc({ id: 'kyc-bad-status' }));
+      const kyc = buildKyc();
+      kycStore.set(kyc.id, kyc);
       await request(appAdmin.getHttpServer())
-        .post('/kyc/kyc-bad-status/status')
+        .post(`/kyc/${kyc.id}/status`)
         .send({ status: 'invalid_status' })
         .expect(400);
     });
@@ -470,9 +486,10 @@ describe('KYC E2E — Submit & Admin Approve', () => {
     it('USER POST /kyc → 201 (route này chỉ guard JwtAuthGuard, không RolesGuard)', async () => {
       const res = await request(appUser.getHttpServer())
         .post('/kyc')
-        .send({ userId: USER_ID, frontImage: 'front' })
+        .send({ userId: OTHER_USER, frontImage: 'https://cdn.test/front.jpg' })
         .expect(201);
       expect(res.body.status).toBe(KYCStatus.PENDING);
+      expect(res.body.userId).toBe(USER_ID);
     });
 
     it('USER GET /kyc → 403 (route này có @Roles(ADMIN) + RolesGuard)', async () => {
@@ -480,13 +497,13 @@ describe('KYC E2E — Submit & Admin Approve', () => {
     });
 
     it('USER GET /kyc/:id → 403', async () => {
-      const kyc = buildKyc({ id: 'kyc-some' });
+      const kyc = buildKyc();
       kycStore.set(kyc.id, kyc);
       await request(appUser.getHttpServer()).get(`/kyc/${kyc.id}`).expect(403);
     });
 
     it('USER POST /kyc/:id/status → 403', async () => {
-      const kyc = buildKyc({ id: 'kyc-some-status', status: KYCStatus.PENDING });
+      const kyc = buildKyc({ status: KYCStatus.PENDING });
       kycStore.set(kyc.id, kyc);
       await request(appUser.getHttpServer())
         .post(`/kyc/${kyc.id}/status`)

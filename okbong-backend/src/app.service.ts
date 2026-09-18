@@ -47,6 +47,11 @@ export class AppService {
     return Math.floor((Date.now() - this.startedAt) / 1000);
   }
 
+  /**
+   * Signature the payment provider sends: `sha256(JSON.stringify(payload) + secret)`
+   * hex-encoded. This is a keyed hash, not HMAC, so it authenticates the payload
+   * only together with the shared secret header.
+   */
   computeWebhookSignature(payload: PaymentWebhookPayload, secret: string): string {
     const data = JSON.stringify(payload);
     return createHash('sha256').update(`${data}${secret}`).digest('hex');

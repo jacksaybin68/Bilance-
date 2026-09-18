@@ -1,8 +1,10 @@
 import { Controller, Get, Post, Body, Param, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOkResponse, ApiCreatedResponse, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { Role } from '../enumeration/role.enum';
 import { KycService } from './kyc.service';
 import { CreateKycDto, KycStatusUpdateDto, KycQueryDto } from './dto/kyc.dto';
@@ -16,18 +18,20 @@ export class KycController {
   constructor(private readonly kycService: KycService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Submit a new KYC application' })
+  @ApiOperation({ summary: 'Submit a new KYC application for the authenticated user' })
   @ApiCreatedResponse({ description: 'KYC submission created' })
-  async submit(@Body() dto: CreateKycDto): Promise<KycEntity> {
-    return this.kycService.create(dto);
+  async submit(
+    @Body() dto: CreateKycDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<KycEntity> {
+    return this.kycService.create(user.id, dto);
   }
 
   @Get('my')
   @ApiOperation({ summary: 'Get current user\'s KYC status' })
   @ApiOkResponse({ description: 'User KYC record or null' })
-  async myKyc(@Body() _body: unknown): Promise<KycEntity | null> {
-    // TODO: inject authenticated user; placeholder
-    return null;
+  async myKyc(@CurrentUser() user: AuthenticatedUser): Promise<KycEntity | null> {
+    return this.kycService.findByUser(user.id);
   }
 
   @Get('pending-count')
@@ -65,8 +69,8 @@ export class KycController {
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: KycStatusUpdateDto,
+    @CurrentUser() reviewer: AuthenticatedUser,
   ): Promise<KycEntity> {
-    // TODO: inject reviewer ID from request user
-    return this.kycService.updateStatus(id, dto, 'system');
+    return this.kycService.updateStatus(id, dto, reviewer.id);
   }
 }

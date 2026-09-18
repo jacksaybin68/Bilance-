@@ -24,6 +24,7 @@ const ADMIN_ID = '00000000-0000-4000-a000-00000000ad01';
 
 type MockWalletRepo = {
   find: ReturnType<typeof vi.fn>;
+  findOne: ReturnType<typeof vi.fn>;
   findOneBy: ReturnType<typeof vi.fn>;
   save: ReturnType<typeof vi.fn>;
   create: ReturnType<typeof vi.fn>;
@@ -35,9 +36,16 @@ type MockTxRepo = {
   save: ReturnType<typeof vi.fn>;
 };
 
+function uuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 function buildWallet(overrides: Partial<WalletEntity> = {}): WalletEntity {
   return {
-    id: 'wallet-' + Math.random().toString(36).slice(2, 8),
+    id: uuid(),
     userId: USER_ID,
     type: WalletType.E_WALLET,
     balance: 0,
@@ -51,8 +59,8 @@ function buildWallet(overrides: Partial<WalletEntity> = {}): WalletEntity {
 
 function buildTx(overrides: Partial<TransactionEntity> = {}): TransactionEntity {
   return {
-    id: 'tx-' + Math.random().toString(36).slice(2, 8),
-    walletId: 'wallet-xxx',
+    id: uuid(),
+    walletId: uuid(),
     userId: USER_ID,
     type: TransactionType.DEPOSIT,
     status: TransactionStatus.COMPLETED,
@@ -110,7 +118,7 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
       save: vi.fn(async (entity: TransactionEntity) => {
         const clone = {
           ...entity,
-          id: entity.id ?? `tx-${Date.now()}-${Math.random()}`,
+          id: entity.id ?? uuid(),
           createdAt: entity.createdAt ?? new Date(),
           updatedAt: new Date(),
         } as TransactionEntity;
@@ -131,11 +139,20 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         const found = [...walletStore.values()].find((w) => w.id === id);
         return found ? { ...found } : null;
       }),
+      findOne: vi.fn(async ({ where }: { where: { id?: string; userId?: string; type?: WalletType } }) => {
+        const found = [...walletStore.values()].find(
+          (w) =>
+            (!where?.id || w.id === where.id) &&
+            (!where?.userId || w.userId === where.userId) &&
+            (!where?.type || w.type === where.type),
+        );
+        return found ? { ...found } : null;
+      }),
       create: vi.fn((dto: Partial<WalletEntity>) => ({ ...dto }) as WalletEntity),
       save: vi.fn(async (entity: WalletEntity) => {
         const clone = {
           ...entity,
-          id: entity.id ?? `wallet-${Date.now()}-${Math.random()}`,
+          id: entity.id ?? uuid(),
           createdAt: entity.createdAt ?? new Date(),
           updatedAt: new Date(),
         } as WalletEntity;
@@ -260,7 +277,7 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
     txRepo.save.mockImplementation(async (entity: TransactionEntity) => {
       const clone = {
         ...entity,
-        id: entity.id ?? `tx-${Date.now()}-${Math.random()}`,
+        id: entity.id ?? uuid(),
         createdAt: entity.createdAt ?? new Date(),
         updatedAt: new Date(),
       } as TransactionEntity;
@@ -282,7 +299,7 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
     walletRepo.save.mockImplementation(async (entity: WalletEntity) => {
       const clone = {
         ...entity,
-        id: entity.id ?? `wallet-${Date.now()}-${Math.random()}`,
+        id: entity.id ?? uuid(),
         createdAt: entity.createdAt ?? new Date(),
         updatedAt: new Date(),
       } as WalletEntity;
@@ -341,12 +358,20 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
       expect(res.body.userId).toBe(currentUser.id);
     });
 
-    it('cho phép deposit cho userId khác khi truyền kèm', async () => {
-      const res = await request(app.getHttpServer())
+    it('từ chối deposit cho userId khác — không được tạo tiền hộ người khác', async () => {
+      await request(app.getHttpServer())
         .post('/wallet/deposit')
         .send({ amount: 33, userId: OTHER_USER })
+        .expect(403);
+      expect(walletStore.has(keyOf(OTHER_USER, WalletType.E_WALLET))).toBe(false);
+    });
+
+    it('cho phép deposit khi userId truyền kèm đúng bằng chính mình', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/wallet/deposit')
+        .send({ amount: 33, userId: currentUser.id })
         .expect(200);
-      expect(res.body.userId).toBe(OTHER_USER);
+      expect(res.body.userId).toBe(currentUser.id);
     });
   });
 
@@ -370,11 +395,16 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
       expect(walletStore.get(keyOf(USER_ID, WalletType.E_WALLET))!.balance).toBe(30);
     });
 
-    it('400 khi ví chưa tồn tại mà withdraw', async () => {
+    it('403 khi withdraw cho userId khác', async () => {
       const res = await request(app.getHttpServer())
         .post('/wallet/withdraw')
         .send({ amount: 10, userId: OTHER_USER })
-        .expect(400);
+        .expect(403);
+      expect(res.body.message).toMatch(/another user/i);
+    });
+
+    it('400 khi ví của chính mình chưa tồn tại mà withdraw', async () => {
+      const res = await request(app.getHttpServer()).post('/wallet/withdraw').send({ amount: 10 }).expect(400);
       expect(res.body.message).toMatch(/Insufficient balance/i);
     });
 
@@ -436,15 +466,22 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
       expect(res.body[0].balance).toBe(42);
     });
 
-    it('GET /wallet/:userId — ví của user khác', async () => {
+    it('403 khi xem ví của user khác', async () => {
       walletStore.set(
         keyOf(OTHER_USER, WalletType.E_WALLET),
         buildWallet({ userId: OTHER_USER, type: WalletType.E_WALLET, balance: 999 }),
       );
-      const res = await request(app.getHttpServer()).get(`/wallet/${OTHER_USER}`).expect(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body[0].userId).toBe(OTHER_USER);
-      expect(res.body[0].balance).toBe(999);
+      await request(app.getHttpServer()).get(`/wallet/${OTHER_USER}`).expect(403);
+    });
+
+    it('cho phép xem ví của chính mình qua /wallet/:userId', async () => {
+      walletStore.set(
+        keyOf(USER_ID, WalletType.E_WALLET),
+        buildWallet({ userId: USER_ID, type: WalletType.E_WALLET, balance: 55 }),
+      );
+      const res = await request(app.getHttpServer()).get(`/wallet/${USER_ID}`).expect(200);
+      expect(res.body[0].userId).toBe(USER_ID);
+      expect(res.body[0].balance).toBe(55);
     });
   });
 
@@ -529,11 +566,12 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
 
     it('200: trả về danh sách transaction của ví, mặc định 50 items, DESC', async () => {
       const res = await request(app.getHttpServer()).get(`/wallet/${walletId}/transactions`).expect(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body).toHaveLength(5);
-      // Último deposit (200) phải là đầu tiên theo DESC createdAt
-      expect(res.body[0].type).toBe(TransactionType.WITHDRAW);
-      expect(res.body[0].amount).toBe(100);
+      expect(Array.isArray(res.body.items)).toBe(true);
+      expect(res.body.items).toHaveLength(5);
+      expect(res.body.total).toBe(5);
+      // Giao dịch mới nhất (WITHDRAW 100) phải đứng đầu theo createdAt DESC
+      expect(res.body.items[0].type).toBe(TransactionType.WITHDRAW);
+      expect(res.body.items[0].amount).toBe(100);
     });
 
     it('lọc theo type=DEPOSIT', async () => {
@@ -541,8 +579,9 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         .get(`/wallet/${walletId}/transactions`)
         .query({ type: TransactionType.DEPOSIT })
         .expect(200);
-      expect(res.body).toHaveLength(3);
-      expect(res.body.every((t: TransactionEntity) => t.type === TransactionType.DEPOSIT)).toBe(true);
+      expect(res.body.items).toHaveLength(3);
+      expect(res.body.total).toBe(3);
+      expect(res.body.items.every((t: TransactionEntity) => t.type === TransactionType.DEPOSIT)).toBe(true);
     });
 
     it('lọc theo type=WITHDRAW', async () => {
@@ -550,8 +589,9 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         .get(`/wallet/${walletId}/transactions`)
         .query({ type: TransactionType.WITHDRAW })
         .expect(200);
-      expect(res.body).toHaveLength(2);
-      expect(res.body.every((t: TransactionEntity) => t.type === TransactionType.WITHDRAW)).toBe(true);
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.total).toBe(2);
+      expect(res.body.items.every((t: TransactionEntity) => t.type === TransactionType.WITHDRAW)).toBe(true);
     });
 
     it('lọc theo status=COMPLETED', async () => {
@@ -559,7 +599,8 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         .get(`/wallet/${walletId}/transactions`)
         .query({ status: TransactionStatus.COMPLETED })
         .expect(200);
-      expect(res.body).toHaveLength(5);
+      expect(res.body.items).toHaveLength(5);
+      expect(res.body.total).toBe(5);
     });
 
     it('lọc theo reference (không có → trả empty)', async () => {
@@ -567,7 +608,8 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         .get(`/wallet/${walletId}/transactions`)
         .query({ reference: 'nonexistent-ref' })
         .expect(200);
-      expect(res.body).toHaveLength(0);
+      expect(res.body.items).toHaveLength(0);
+      expect(res.body.total).toBe(0);
     });
 
     it('400 khi walletId không phải UUID', async () => {
@@ -585,7 +627,8 @@ describe('Wallet E2E — Nạp/Rút + Transaction History', () => {
         .get(`/wallet/${walletId}/transactions`)
         .query({ limit: 2 })
         .expect(200);
-      expect(res.body).toHaveLength(2);
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.total).toBe(5);
     });
   });
 

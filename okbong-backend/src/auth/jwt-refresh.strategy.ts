@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import type { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { requireSecret } from '../common/utils/require-secret.util';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { UserJwtPayload } from '../user/entity/user.entity';
 
@@ -22,7 +23,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     super({
       jwtFromRequest: extractRefreshToken,
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET', 'okbong-refresh-secret'),
+      secretOrKey: requireSecret(configService, 'JWT_REFRESH_SECRET'),
     });
   }
 

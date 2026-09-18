@@ -1,12 +1,13 @@
-import { IsString, IsOptional, IsDateString, IsEnum, IsNumberString } from 'class-validator';
+import { IsString, IsOptional, IsDateString, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { KYCStatus } from '../entities/kyc.entity';
 
+/**
+ * The subject of a submission is always the authenticated caller, so it is
+ * taken from the JWT rather than the body — accepting it here would let a user
+ * file KYC in another account's name.
+ */
 export class CreateKycDto {
-  @ApiProperty({ description: 'User ID requesting KYC' })
-  @IsString()
-  userId!: string;
-
   @ApiPropertyOptional({ description: 'Front/back side image URL or base64' })
   @IsOptional()
   @IsString()

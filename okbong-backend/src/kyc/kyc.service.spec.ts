@@ -80,11 +80,11 @@ describe('KycService', () => {
   // =========================================================================
   describe('create', () => {
     it('tạo KYC Pending với userId và không có ảnh', async () => {
-      const dto: CreateKycDto = { userId: USER_ID };
+      const dto: CreateKycDto = {};
       const saved = makeKyc({ id: 'new-1' });
 
       repo.save.mockResolvedValue(saved);
-      const result = await service.create(dto);
+      const result = await service.create(USER_ID, dto);
 
       expect(repo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -104,9 +104,9 @@ describe('KycService', () => {
 
     it('không cho submit khi đã có KYC PENDING cho user đó', async () => {
       repo.findOne.mockResolvedValue(makeKyc({ userId: USER_ID, status: KYCStatus.PENDING }));
-      const dto: CreateKycDto = { userId: USER_ID };
+      const dto: CreateKycDto = {};
 
-      await expect(service.create(dto)).rejects.toThrow(
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
         'A pending KYC submission already exists for this user',
       );
       expect(repo.save).not.toHaveBeenCalled();
@@ -114,7 +114,6 @@ describe('KycService', () => {
 
     it('chấp nhận frontImage / backImage / selfieImage dạng URL HTTPS', async () => {
       const dto: CreateKycDto = {
-        userId: USER_ID,
         frontImage: 'https://example.com/front.jpg',
         backImage: 'https://example.com/back.png',
         selfieImage: 'https://example.com/selfie.webp',
@@ -122,28 +121,27 @@ describe('KycService', () => {
       const saved = makeKyc({ id: 'img-1' });
       repo.save.mockResolvedValue(saved);
 
-      const result = await service.create(dto);
+      const result = await service.create(USER_ID, dto);
       expect(result).toBe(saved);
     });
 
     it('chấp nhận ảnh base64 hợp lệ (mime + size trong giới hạn)', async () => {
       const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
       const dto: CreateKycDto = {
-        userId: USER_ID,
         frontImage: tinyPng,
       };
       const saved = makeKyc({ id: 'b64-1' });
       repo.save.mockResolvedValue(saved);
 
-      const result = await service.create(dto);
+      const result = await service.create(USER_ID, dto);
       expect(result).toBe(saved);
     });
 
     it('từ chối ảnh base64 MIME không nằm trong whitelist', async () => {
       const gif = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
-      const dto: CreateKycDto = { userId: USER_ID, frontImage: gif };
+      const dto: CreateKycDto = { frontImage: gif };
 
-      await expect(service.create(dto)).rejects.toThrow(
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
         'frontImage must be one of: image/jpeg, image/png, image/webp',
       );
       expect(repo.save).not.toHaveBeenCalled();
@@ -151,23 +149,23 @@ describe('KycService', () => {
 
     it('từ chối ảnh base64 vượt quá giới hạn 5 MB', async () => {
       const big = 'data:image/jpeg;base64,' + 'A'.repeat(7_400_000);
-      const dto: CreateKycDto = { userId: USER_ID, frontImage: big };
+      const dto: CreateKycDto = { frontImage: big };
 
-      await expect(service.create(dto)).rejects.toThrow(
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
         'frontImage exceeds the maximum image size of 5 MB',
       );
       expect(repo.save).not.toHaveBeenCalled();
     });
 
     it('từ chối data URI sai định dạng (không có phần data)', async () => {
-      const dto: CreateKycDto = { userId: USER_ID, frontImage: 'data:invalid' };
-      await expect(service.create(dto)).rejects.toThrow('is not a valid data URI');
+      const dto: CreateKycDto = { frontImage: 'data:invalid' };
+      await expect(service.create(USER_ID, dto)).rejects.toThrow('is not a valid data URI');
       expect(repo.save).not.toHaveBeenCalled();
     });
 
     it('từ chối giá trị không phải URL hay data URI', async () => {
-      const dto: CreateKycDto = { userId: USER_ID, frontImage: 'not-a-url-or-data-uri' };
-      await expect(service.create(dto)).rejects.toThrow(
+      const dto: CreateKycDto = { frontImage: 'not-a-url-or-data-uri' };
+      await expect(service.create(USER_ID, dto)).rejects.toThrow(
         'frontImage must be a valid HTTP(S) URL or a data URI',
       );
       expect(repo.save).not.toHaveBeenCalled();
@@ -180,7 +178,7 @@ describe('KycService', () => {
       await expect(service.validateImage(undefined, 'frontImage')).toBeUndefined();
       await expect(service.validateImage('', 'frontImage')).toBeUndefined();
 
-      const result = await service.create({ userId: USER_ID, frontImage: null as any });
+      const result = await service.create(USER_ID, { frontImage: null as any });
       expect(result).toBe(saved);
     });
   });

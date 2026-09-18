@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { requireSecret } from '../common/utils/require-secret.util';
 import { Role } from '../enumeration/role.enum';
 import { UserService } from '../user/user.service';
 import { TwoFactorService } from './two-factor.service';
@@ -177,7 +178,7 @@ export class AuthService {
   // ─── Private helpers ──────────────────────────────────────────────────────
 
   private signRefreshToken(payload: { email: string; sub: string; role: Role }): string {
-    const secret = this.configService.get<string>('JWT_REFRESH_SECRET', 'okbong-refresh-secret');
+    const secret = requireSecret(this.configService, 'JWT_REFRESH_SECRET');
     const expiresIn = this.configService.get<string>('JWT_REFRESH_EXPIRES', '7d') as
       | number
       | `${number}`

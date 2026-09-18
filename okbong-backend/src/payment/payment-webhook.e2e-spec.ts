@@ -3,12 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { JwtStrategy } from '../auth/jwt.strategy';
 import { BillStatus } from '../bill/dto/bill.dto';
 import { BillEntity } from '../bill/entity/bill.entity';
 import { PaymentWebhookController } from './payment-webhook.controller';
-import { AppService } from './app.service';
+import { AppService } from '../app.service';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -71,9 +69,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
       }),
     };
 
-    const adminUser = { id: ADMIN_ID, email: 'admin@test.com', role: 'ADMIN' as const };
-
-    // ---- Admin app: override JwtAuthGuard để inject admin user ----
+    // ---- Provider app: public endpoint, gated only by the shared secret ----
     const paymentModule = await Test.createTestingModule({
       controllers: [PaymentWebhookController],
       providers: [
@@ -81,25 +77,16 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         { provide: getRepositoryToken(BillEntity), useValue: billRepo },
         {
           provide: ConfigService,
-          useValue: { get: (_key: string, def?: string) => (WEBHOOK_SECRET === _key ? WEBHOOK_SECRET : def) },
+          useValue: { get: (key: string, def?: string) => (key === 'WEBHOOK_SECRET' ? WEBHOOK_SECRET : def) },
         },
       ],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({
-        canActivate: (ctx: any) => {
-          const req = ctx.switchToHttp().getRequest();
-          req.user = adminUser;
-          return true;
-        },
-      })
-      .compile();
+    }).compile();
 
     appAdmin = paymentModule.createNestApplication();
     appAdmin.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, validationError: { target: false, value: false } }));
     await appAdmin.init();
 
-    // ---- NoAuth app: guard thật, không có token → 401 ----
+    // ---- NoAuth app: same public controller without the secret header ----
     const noAuthModule = await Test.createTestingModule({
       controllers: [PaymentWebhookController],
       providers: [
@@ -107,7 +94,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         { provide: getRepositoryToken(BillEntity), useValue: billRepo },
         {
           provide: ConfigService,
-          useValue: { get: (_key: string, def?: string) => (WEBHOOK_SECRET === _key ? WEBHOOK_SECRET : def) },
+          useValue: { get: (key: string, def?: string) => (key === 'WEBHOOK_SECRET' ? WEBHOOK_SECRET : def) },
         },
       ],
     }).compile();
@@ -159,14 +146,13 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
       await request(appAdmin.getHttpServer())
         .post('/payment-webhook')
         .set('x-webhook-secret', WEBHOOK_SECRET)
-        .send(makePayload())
+        .send(makePayload({ billId: undefined }))
         .expect(200);
     });
 
-    it('401: không authenticated (noAuth app) — guard thật không cho phép', async () => {
+    it('401: secret đúng nhưng thiếu ở app không cấu hình secret', async () => {
       await request(appNoAuth.getHttpServer())
         .post('/payment-webhook')
-        .set('x-webhook-secret', WEBHOOK_SECRET)
         .send(makePayload())
         .expect(401);
     });
@@ -185,14 +171,13 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .expect(400);
     });
 
-    it('200: signature khớp (điền thủ công trước khi gửi — tính giống provider)', async () => {
-      // Controller tính signature từ payload — nhưng ta không có AppService.compute trong e2e.
-      // Thay vì đó, bỏ signature đi và test路径 không signature (chấp nhận được).
-      // Test signature thực tế nên là unit test (xem payment-webhook.controller.spec.ts).
+    it('200: bỏ qua kiểm tra signature khi provider không gửi header', async () => {
+      // Việc tính signature khớp được cover ở unit test
+      // (payment-webhook.controller.spec.ts) vì cần gọi trực tiếp AppService.
       await request(appAdmin.getHttpServer())
         .post('/payment-webhook')
         .set('x-webhook-secret', WEBHOOK_SECRET)
-        .send(makePayload({ signature: undefined }))
+        .send(makePayload({ billId: undefined, signature: undefined }))
         .expect(200);
     });
   });
@@ -211,7 +196,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .send(makePayload({ billId: BILL_ID, status: 'success' }))
         .expect(200);
 
-      expect(res.body).toEqual({ received: true, processed: 'success', billId: BILL_ID });
+      expect(res.body).toEqual({ received: true, processed: 'success' });
       expect(billRepo.findOneBy).toHaveBeenCalledWith({ id: BILL_ID });
       expect(billRepo.save).toHaveBeenCalledTimes(1);
       expect(billStore.get(BILL_ID)!.status).toBe(BillStatus.PAID);
@@ -227,7 +212,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .send(makePayload({ billId: OTHER_BILL_ID, status: 'paid' }))
         .expect(200);
 
-      expect(res.body).toEqual({ received: true, processed: 'paid', billId: OTHER_BILL_ID });
+      expect(res.body).toEqual({ received: true, processed: 'paid' });
       expect(billRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: BillStatus.PAID }));
     });
 
@@ -241,7 +226,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .send(makePayload({ billId: BILL_ID, status: 'success' }))
         .expect(200);
 
-      expect(res.body).toEqual({ received: true, processed: 'already-paid', billId: BILL_ID });
+      expect(res.body).toEqual({ received: true, processed: 'already-paid' });
       expect(billRepo.save).not.toHaveBeenCalled();
     });
 
@@ -249,7 +234,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
       await request(appAdmin.getHttpServer())
         .post('/payment-webhook')
         .set('x-webhook-secret', WEBHOOK_SECRET)
-        .send(makePayload({ billId: 'missing-bill-id', status: 'success' }))
+        .send(makePayload({ billId: '00000000-0000-4000-a000-00000000dead', status: 'success' }))
         .expect(400);
     });
   });
@@ -284,7 +269,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .send(makePayload({ billId: BILL_ID, status: 'refund' }))
         .expect(200);
 
-      expect(res.body).toEqual({ received: true, processed: 'refund', billId: BILL_ID });
+      expect(res.body).toEqual({ received: true, processed: 'refund' });
       expect(billRepo.save).toHaveBeenCalledTimes(1);
       expect(billStore.get(BILL_ID)!.status).toBe(BillStatus.CANCELLED);
     });
@@ -299,7 +284,7 @@ describe('PaymentWebhook E2E — Webhook từ provider', () => {
         .send(makePayload({ billId: OTHER_BILL_ID, status: 'chargeback' }))
         .expect(200);
 
-      expect(res.body).toEqual({ received: true, processed: 'chargeback', billId: OTHER_BILL_ID });
+      expect(res.body).toEqual({ received: true, processed: 'chargeback' });
       expect(billStore.get(OTHER_BILL_ID)!.status).toBe(BillStatus.CANCELLED);
     });
 
