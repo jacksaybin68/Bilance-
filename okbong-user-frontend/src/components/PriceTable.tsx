@@ -1,32 +1,13 @@
 'use client';
 
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Spinner } from '@/components/ui/Feedback';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from '@/components/ui/Feedback';
-import { priceApi } from '@/lib/api/endpoints';
-import { formatNumber } from '@/lib/format';
 import { useI18n } from '@/lib/i18n';
-import { toFiniteNumber } from '@/lib/parsers';
-
-export interface CoinSymbol {
-  symbol: string;
-  basePrice: number;
-}
-
-export const DEFAULT_COINS: CoinSymbol[] = [
-  { symbol: 'BDSD', basePrice: 100 },
-  { symbol: 'BTC', basePrice: 50000 },
-  { symbol: 'ETH', basePrice: 3000 },
-];
-
-const HISTORY_POINTS = 20;
-
-interface CoinState {
-  symbol: string;
-  price: number;
-  history: number[];
-  change24h: number;
-}
+import { CoinIcon } from '@/components/crypto-icons/CoinIcon';
+import { findCoin, isMarketCoin, type MarketCoin } from '@/lib/market/types';
+import { useMarketData } from '@/lib/market/useMarketData';
+import { priceApi } from '@/lib/api/endpoints';
 
 function buildSparkline(values: number[]): string {
   if (values.length < 2) return '';
@@ -73,92 +54,70 @@ function Sparkline({ values, positive }: SparklineProps) {
 }
 
 interface PriceTableProps {
-  /** Danh sách coin hiển thị (mặc định: BDSD, BTC, ETH) */
-  coins?: CoinSymbol[];
+  /** Danh sách symbol hiển thị (mặc định: BTC, ETH). Không chứa BDSD (token nội bộ). */
+  symbols?: string[];
   /** Hiển thị link đến /price/:symbol */
   showDetailLink?: boolean;
 }
 
-export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: PriceTableProps) {
-  const { t, locale } = useI18n();
-  const [rows, setRows] = useState<CoinState[]>(() =>
-    coins.map(({ symbol, basePrice }) => ({
-      symbol,
-      price: basePrice,
-      history: Array.from({ length: HISTORY_POINTS }, (_, i) =>
-        Number((basePrice * (1 + Math.sin(i / 3) * 0.005)).toFixed(2)),
-      ),
-      change24h: 0,
-    })),
-  );
-  const [isOffline, setIsOffline] = useState(false);
+export function PriceTable({ symbols = ['BTC', 'ETH'], showDetailLink = true }: PriceTableProps) {
+  const { t } = useI18n();
+  const { coins, meta, state, isStale, refresh } = useMarketData({ refreshMs: 30_000 });
+  const [isOffline, setIsOffline] = useState<boolean>(false);
 
-  // Ref để giữ latest prices không re-trigger effects
-  const latestPricesRef = useRef<Record<string, number>>({});
+  // Lấy giá BDSD (token nội bộ) riêng qua REST — không có trong CoinGecko.
+  const [bdsdPrice, setBdsdPrice] = useState<number>(100);
+  const [bdsdLoaded, setBdsdLoaded] = useState(false);
 
-  // Fetch initial prices từ API
   useEffect(() => {
     let cancelled = false;
-
-    const fetchAll = async () => {
-      try {
-        const results = await Promise.allSettled(
-          coins.map((c) => priceApi.current(c.symbol)),
-        );
-
+    priceApi.current('BDSD')
+      .then((p) => {
         if (cancelled) return;
-
-        setRows((prev) =>
-          prev.map((row, idx) => {
-            const result = results[idx];
-            if (result?.status === 'fulfilled') {
-              const fetched = toFiniteNumber(result.value, row.price);
-              latestPricesRef.current[row.symbol] = fetched;
-              return { ...row, price: fetched };
-            }
-            return row;
-          }),
-        );
-        setIsOffline(false);
-      } catch {
+        setBdsdPrice(p);
+        setBdsdLoaded(true);
+      })
+      .catch(() => {
         if (!cancelled) setIsOffline(true);
-      }
-    };
-
-    void fetchAll();
+      });
     return () => {
       cancelled = true;
     };
-  }, [coins]);
-
-  // Tick mỗi 2 giây để cập nhật giá giả lập
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setRows((prev) =>
-        prev.map((row) => {
-          const drift = (Math.random() - 0.5) * 2;
-          const newPrice = Math.max(row.price * (1 + drift / 100), 0.01);
-          const newHistory = [...row.history, newPrice].slice(-HISTORY_POINTS);
-          const first = newHistory[0] ?? newPrice;
-          const change24h = first > 0 ? ((newPrice - first) / first) * 100 : 0;
-
-          return {
-            ...row,
-            price: newPrice,
-            history: newHistory,
-            change24h,
-          };
-        }),
-      );
-    }, 2000);
-
-    return () => window.clearInterval(timer);
   }, []);
+
+  const rows: MarketCoin[] = useMemo(() => {
+    const list = [...coins];
+    if (bdsdLoaded) {
+      list.push({
+        id: 'bdsd',
+        symbol: 'BDSD',
+        name: 'NexTrading Token',
+        image: null,
+        price: bdsdPrice,
+        currency: 'BDSD',
+        change24h: 0,
+        volume24h: null,
+        marketCap: null,
+        sparkline: [],
+        updatedAt: meta.updatedAt ?? new Date().toISOString(),
+        stale: false,
+      });
+    }
+    return list;
+  }, [coins, bdsdPrice, bdsdLoaded, meta.updatedAt]);
+
+  if (state === 'loading' && coins.length === 0) {
+    return <Spinner label={t('common.loading')} />;
+  }
 
   return (
     <div>
       {isOffline ? (
         <Alert variant="info" message={t('market.offline')} className="mb-3" />
+      ) : null}
+
+      {coins.length === 0 && !isOffline ? (
+        <Alert variant="info" message={t('market.error')} className="mb-3" />
       ) : null}
 
       <div className="overflow-x-auto rounded-xl">
@@ -173,46 +132,42 @@ export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: Pri
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => {
-              const isPositive = row.change24h >= 0;
-
+            {rows.map((coin) => {
+              const isPositive = coin.change24h >= 0;
               return (
                 <tr
-                  key={row.symbol}
+                  key={coin.symbol}
                   className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50 dark:border-gray-700/40 dark:hover:bg-gray-700/30"
                 >
                   {/* Symbol */}
                   <td className="py-3 pl-4 pr-2">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {row.symbol.slice(0, 2)}
-                      </span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
-                        {row.symbol}
-                      </span>
+                      <CoinIcon symbol={coin.symbol} src={coin.image} size={28} />
+                      <div>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{coin.symbol}</span>
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500">{coin.name}</p>
+                      </div>
                     </div>
                   </td>
 
                   {/* Giá hiện tại */}
                   <td className="px-2 py-3 text-right font-mono font-semibold text-gray-900 dark:text-gray-100">
-                    {formatNumber(row.price, locale)}
+                    {coin.price.toLocaleString('vi-VN')}
                   </td>
 
                   {/* % thay đổi */}
                   <td
                     className={`px-2 py-3 text-right font-medium tabular-nums ${
-                      isPositive
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
+                      isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
                     }`}
                   >
                     {isPositive ? '+' : ''}
-                    {row.change24h.toFixed(2)}%
+                    {coin.change24h.toFixed(2)}%
                   </td>
 
                   {/* Sparkline */}
                   <td className="px-2 py-3">
-                    <Sparkline values={row.history} positive={isPositive} />
+                    <Sparkline values={coin.sparkline} positive={isPositive} />
                   </td>
 
                   {/* Link chi tiết */}
@@ -233,9 +188,18 @@ export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: Pri
         </table>
       </div>
 
-      <p className="mt-2 text-right text-xs text-gray-400 dark:text-gray-500">
-        ⟳ {t('market.updated')}
-      </p>
+      <div className="mt-2 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+        <span>⟳ {t('market.updated')}</span>
+        {isStale && (
+          <button
+            type="button"
+            onClick={refresh}
+            className="text-primary hover:underline font-medium"
+          >
+            {t('market.refresh')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

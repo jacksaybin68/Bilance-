@@ -6,10 +6,10 @@ import { useI18n } from '@/lib/i18n';
 interface KycModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onVerified: () => void;
 }
 
-export function KycModal({ isOpen, onClose, onConfirm }: KycModalProps) {
+export function KycModal({ isOpen, onClose, onVerified }: KycModalProps) {
   const { t } = useI18n();
 
   if (!isOpen) return null;
@@ -67,7 +67,7 @@ export function KycModal({ isOpen, onClose, onConfirm }: KycModalProps) {
             </button>
             <button
               type="button"
-              onClick={onConfirm}
+              onClick={onVerified}
               className="flex-1 rounded-xl bg-black py-2.5 text-xs font-bold text-white hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200"
             >
               {t('p2p.verifyNow')}

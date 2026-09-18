@@ -39,7 +39,7 @@ export default function MarketPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className={`${cardClassName} text-center`}>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            {t('bill.type.transfer')}
+            {t('p2p.title')}
           </p>
           <p className="mt-1 text-2xl font-bold text-primary">24/7</p>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">

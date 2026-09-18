@@ -1,0 +1,23 @@
+{
+  "name": "bilance-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "NexTrading / OKBong — workspace coordinator & dev runner",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "node scripts/dev.mjs",
+    "dev:backend": "npm --prefix okbong-backend run dev",
+    "dev:user": "PORT=3001 npm --prefix okbong-user-frontend run dev -- -p 3001",
+    "dev:admin": "cd okbong-admin-frontend && VITE_BASE_PATH=/admin/ npm run dev",
+    "dev:proxy": "npm --prefix proxy-layer start",
+    "test": "npm run test:all",
+    "test:all": "npm --prefix okbong-backend test && npm --prefix okbong-user-frontend test && npm --prefix okbong-admin-frontend test && npm --prefix proxy-layer test",
+    "typecheck": "npm run typecheck:all",
+    "typecheck:all": "npm --prefix okbong-backend run typecheck && npm --prefix okbong-user-frontend run typecheck && npm --prefix okbong-admin-frontend run typecheck",
+    "build": "npm run build:all",
+    "build:all": "npm --prefix okbong-backend run build && npm --prefix okbong-user-frontend run build && npm --prefix okbong-admin-frontend run build"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

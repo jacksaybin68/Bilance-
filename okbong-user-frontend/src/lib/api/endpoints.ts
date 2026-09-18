@@ -1,5 +1,6 @@
 import type {
   AuthTokens,
+  TwoFaChallengeResult,
   Bill,
   BillFilter,
   ChatMessage,
@@ -17,67 +18,60 @@ import type {
   Wallet,
   WalletMutationRequest,
 } from '@/types/api';
-import { apiClient } from './client';
+import { apiClient, requestWithMeta, type ResponseMeta } from './client';
+import { DEFAULT_MARKET_IDS, type MarketCoin } from '@/lib/market/types';
 
 function toQuery(params: Record<string, string | number | undefined>): string {
+  if (!params) return '';
   const search = new URLSearchParams();
-
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== '') search.set(key, String(value));
   });
-
   const query = search.toString();
   return query.length > 0 ? `?${query}` : '';
 }
 
 export const authApi = {
-  login: (payload: LoginRequest): Promise<AuthTokens> =>
-    apiClient.post<AuthTokens>('/auth/login', payload, { auth: false }),
+  login: (payload: LoginRequest): Promise<AuthTokens & TwoFaChallengeResult> =>
+    apiClient.post<AuthTokens & TwoFaChallengeResult>('/auth/login', payload, { auth: false }),
   register: (payload: RegisterRequest): Promise<User> =>
     apiClient.post<User>('/users', payload, { auth: false }),
   refresh: (refreshToken: string): Promise<AuthTokens> =>
     apiClient.post<AuthTokens>('/auth/refresh', { refreshToken }, { auth: false }),
-};
-
-export const userApi = {
-  me: (): Promise<User> => apiClient.get<User>('/users/me'),
-  list: (params: { page?: number; limit?: number; search?: string } = {}): Promise<User[]> =>
-    apiClient.get<User[]>(`/users${toQuery(params)}`),
-  update: (id: string, payload: Partial<Pick<User, 'email' | 'fullName' | 'role' | 'status'>>): Promise<User> =>
-    apiClient.put<User>(`/users/${id}`, payload),
-};
-
-export const walletApi = {
-  listMine: (): Promise<Wallet[]> => apiClient.get<Wallet[]>('/wallet'),
-  byUser: (userId: string): Promise<Wallet[]> => apiClient.get<Wallet[]>(`/wallet/${userId}`),
-  deposit: (payload: WalletMutationRequest): Promise<Wallet> =>
-    apiClient.post<Wallet>('/wallet/deposit', payload),
-  withdraw: (payload: WalletMutationRequest): Promise<Wallet> =>
-    apiClient.post<Wallet>('/wallet/withdraw', payload),
-  transactions: (
-    walletId: string,
-    params: {
-      type?: 'deposit' | 'withdraw' | 'transfer_in' | 'transfer_out' | 'fee' | 'adjustment';
-      status?: 'pending' | 'completed' | 'failed' | 'reversed';
-      limit?: number;
-      offset?: number;
-    } = {},
-  ): Promise<PaginatedTransactions> =>
-    apiClient.get<PaginatedTransactions>(
-      `/wallet/${walletId}/transactions${toQuery({
-        type: params.type,
-        status: params.status,
-        limit: params.limit,
-        offset: params.offset,
-      })}`,
+  /** Hoàn tất đăng nhập 2FA — gọi sau khi nhận `requires2FA: true` từ /auth/login. */
+  verify2fa: (
+    payload: { sessionId: string; token: string },
+  ): Promise<AuthTokens & { twoFactorEnabled: boolean; pendingSetupResolved: boolean; user: User }> =>
+    apiClient.post<AuthTokens & { twoFactorEnabled: boolean; pendingSetupResolved: boolean; user: User }>(
+      '/auth/2fa/verify',
+      payload,
+      { auth: false },
     ),
 };
 
+export const userApi = {
+  me: (): Promise<User> => apiClient.get<User>('/users/me', { auth: true }),
+  update: (
+    body: Partial<Pick<User, 'fullName' | 'email'>>,
+  ): Promise<User> => apiClient.patch<User>('/users/me', body, { auth: true }),
+};
+
+export const walletApi = {
+  listMine: (): Promise<Wallet[]> =>
+    apiClient.get<Wallet[]>('/wallets/mine', { auth: true }),
+  deposit: (
+    payload: WalletMutationRequest,
+  ): Promise<Wallet> => apiClient.post<Wallet>('/wallets/deposit', payload, { auth: true }),
+  withdraw: (
+    payload: WalletMutationRequest,
+  ): Promise<Wallet> => apiClient.post<Wallet>('/wallets/withdraw', payload, { auth: true }),
+};
+
 export const billApi = {
-  list: (filter: BillFilter = {}): Promise<Bill[]> =>
-    apiClient.get<Bill[]>(`/bill${toQuery({ status: filter.status, type: filter.type })}`),
-  create: (payload: CreateBillRequest): Promise<Bill> => apiClient.post<Bill>('/bill', payload),
-  detail: (id: string): Promise<Bill> => apiClient.get<Bill>(`/bill/${id}`),
+  list: (filter?: BillFilter): Promise<Bill[]> =>
+    apiClient.get<Bill[]>('/bills', { auth: true, query: filter }),
+  create: (payload: CreateBillRequest): Promise<Bill> =>
+    apiClient.post<Bill>('/bills', payload, { auth: true }),
 };
 
 export const priceApi = {
@@ -85,6 +79,19 @@ export const priceApi = {
     apiClient.get<number>(`/price/current${toQuery({ symbol })}`, { auth: false }),
   history: (symbol: string, limit = 100): Promise<PricePoint[]> =>
     apiClient.get<PricePoint[]>(`/price/history${toQuery({ symbol, limit })}`, { auth: false }),
+  /**
+   * Dữ liệu thị trường thật (CoinGecko qua backend).
+   * Contract: `okbong-backend/docs/contracts/trading-market-data.md`.
+   */
+  markets: (
+    ids: readonly string[] = DEFAULT_MARKET_IDS,
+    vs: 'vnd' | 'usd' = 'vnd',
+  ): Promise<{ data: MarketCoin[]; meta: ResponseMeta }> =>
+    requestWithMeta<MarketCoin[]>(
+      `/price/markets${toQuery({ ids: ids.join(','), vs })}`,
+      { auth: false },
+    ),
+};
 };
 
 export const orderApi = {

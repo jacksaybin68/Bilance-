@@ -16,6 +16,7 @@ import { authApi, userApi } from '@/lib/api/endpoints';
 import { ApiError, getErrorMessage, tokenStore } from '@/lib/api/client';
 import { saveSession } from '@/lib/auth/session';
 import { useI18n } from '@/lib/i18n';
+import type { AuthTokens } from '@/types/api';
 import {
   FieldErrors,
   LoginField,
@@ -25,7 +26,7 @@ import {
   validateRegisterForm,
 } from '@/lib/validation';
 
-type Mode = 'login' | 'register';
+type Mode = 'login' | 'register' | '2fa';
 
 const emptyLogin = { email: '', password: '' };
 const emptyRegister = { email: '', password: '', confirmPassword: '', fullName: '' };
@@ -43,6 +44,13 @@ export default function AuthPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [twoFaSession, setTwoFaSession] = useState<{
+    sessionId: string;
+    email: string;
+  } | null>(null);
+  const [twoFaToken, setTwoFaToken] = useState('');
+  const [twoFaError, setTwoFaError] = useState('');
+
   const switchMode = (next: Mode) => {
     setMode(next);
     setFormError('');
@@ -53,8 +61,8 @@ export default function AuthPage() {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setLoginErrors({});
     setFormError('');
-    setSuccessMessage('');
 
     const errors = validateLoginForm(loginValues, t);
     setLoginErrors(errors);
@@ -62,26 +70,50 @@ export default function AuthPage() {
 
     setIsSubmitting(true);
     try {
-      const tokens = await authApi.login({
-        email: loginValues.email.trim(),
-        password: loginValues.password,
-      });
-
-      tokenStore.set(tokens.accessToken, tokens.refreshToken);
-
-      const profile = await userApi.me().catch(() => null);
-      if (profile) {
-        saveSession(profile, tokens.accessToken, tokens.refreshToken);
+      const response = await authApi.login(loginValues);
+      const typed = response as
+        | AuthTokens
+        | { requires2FA: true; sessionId: string; pendingSetup?: boolean };
+      if ('requires2FA' in typed && typed.sessionId) {
+        setTwoFaSession({
+          sessionId: typed.sessionId,
+          email: loginValues.email,
+        });
+        return;
       }
-
-      setSuccessMessage(t('auth.success.login'));
+      if (!('accessToken' in typed)) {
+        throw new Error('Invalid login response');
+      }
+      const profile = await userApi.me();
+      saveSession(profile, typed.accessToken, typed.refreshToken);
       router.push('/dashboard');
+      router.refresh();
     } catch (error) {
-      setFormError(
-        error instanceof ApiError && error.isUnauthorized
-          ? t('auth.error.invalid')
-          : getErrorMessage(error, t('common.error')),
-      );
+      setFormError(getErrorMessage(error, t('auth.error.invalid')));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerify2FA = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setTwoFaError('');
+    if (!twoFaSession) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await authApi.verify2fa({
+        sessionId: twoFaSession.sessionId,
+        token: twoFaToken,
+      });
+      const profile = await userApi.me();
+      saveSession(profile, response.accessToken, response.refreshToken);
+      setTwoFaSession(null);
+      setTwoFaToken('');
+      router.push('/dashboard');
+      router.refresh();
+    } catch (error) {
+      setTwoFaError(getErrorMessage(error, t('auth.error.invalid')));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,8 +121,8 @@ export default function AuthPage() {
 
   const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setRegisterErrors({});
     setFormError('');
-    setSuccessMessage('');
 
     const errors = validateRegisterForm(registerValues, t);
     setRegisterErrors(errors);
@@ -103,15 +135,14 @@ export default function AuthPage() {
         email: trimmedEmail,
         password: registerValues.password,
         fullName:
-          registerValues.fullName.trim().length > 0 ? registerValues.fullName.trim() : undefined,
+          registerValues.fullName.trim().length > 0
+            ? registerValues.fullName.trim()
+            : undefined,
       });
-
       setSuccessMessage(t('auth.success.register'));
-      setRegisterValues(emptyRegister);
-      setLoginValues((current) => ({ ...current, email: trimmedEmail }));
-      setMode('login');
+      switchMode('login');
     } catch (error) {
-      setFormError(getErrorMessage(error, t('common.error')));
+      setFormError(getErrorMessage(error, t('auth.error.invalid')));
     } finally {
       setIsSubmitting(false);
     }
@@ -119,154 +150,95 @@ export default function AuthPage() {
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200/70 bg-white p-6 shadow-xl dark:border-gray-700/60 dark:bg-gray-800 sm:p-8">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {mode === 'login' ? t('auth.login.title') : t('auth.register.title')}
-          </h1>
-          <div className="flex items-center gap-2">
-            <LanguageToggle />
-            <ThemeToggle />
-          </div>
+      <div className="w-full max-w-md">
+        <div className="flex items-center justify-between">
+          <LanguageToggle />
+          <ThemeToggle />
         </div>
 
-        <Alert variant="error" message={formError} className="mb-4" />
-        <Alert variant="success" message={successMessage} className="mb-4" />
+        <h1 className="mt-8 text-center text-3xl font-bold text-gray-900 dark:text-gray-100">
+          {mode === 'login' ? t('auth.login.title') : t('auth.register.title')}
+        </h1>
 
-        <form
-          className="space-y-4"
-          onSubmit={mode === 'login' ? handleLogin : handleRegister}
-          noValidate
-        >
-          {mode === 'register' ? (
-            <Field
-              id="register-fullName"
-              label={t('auth.fullName')}
-              value={registerValues.fullName}
-              placeholder={t('auth.fullName.placeholder')}
-              autoComplete="name"
-              error={registerErrors.fullName}
-              onChange={(value) =>
-                setRegisterValues((current) => ({ ...current, fullName: value }))
-              }
-            />
-          ) : null}
+        <Alert variant="error" message={formError} className="mt-4" />
+        <Alert variant="success" message={successMessage} className="mt-4" />
 
-          <Field
-            id={mode === 'login' ? 'login-email' : 'register-email'}
-            type="email"
-            label={t('auth.email')}
-            value={mode === 'login' ? loginValues.email : registerValues.email}
-            placeholder={t('auth.email.placeholder')}
-            autoComplete="email"
-            error={mode === 'login' ? loginErrors.email : registerErrors.email}
-            onChange={(value) =>
-              mode === 'login'
-                ? setLoginValues((current) => ({ ...current, email: value }))
-                : setRegisterValues((current) => ({ ...current, email: value }))
-            }
-          />
+        {mode === '2fa' && twoFaSession ? (
+          <form onSubmit={handleVerify2FA} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label htmlFor="email" className={labelClassName}>{t('auth.email')}</label>
+              <input id="email" type="email" value={twoFaSession.email} disabled className={buildInputClass(false)} />
+            </div>
+            <div>
+              <label htmlFor="token" className={labelClassName}>{t('auth.2fa.input.placeholder')}</label>
+              <input
+                id="token" type="text" inputMode="numeric" autoComplete="one-time-code"
+                value={twoFaToken}
+                onChange={(e) => setTwoFaToken(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder={t('auth.2fa.input.placeholder')}
+                className={buildInputClass(Boolean(twoFaError))}
+              />
+              <FieldError id="token-error" message={twoFaError} />
+            </div>
+            <button type="submit" disabled={isSubmitting} className={`w-full ${primaryButtonClassName}`}>
+              {isSubmitting ? t('common.save') : t('auth.signIn')}
+            </button>
+            <button type="button" onClick={() => { setTwoFaSession(null); setTwoFaToken(''); }} className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              {t('auth.2fa.backToLogin')}
+            </button>
+          </form>
+        ) : mode === 'login' ? (
+          <form onSubmit={handleLogin} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label htmlFor="email" className={labelClassName}>{t('auth.email')}</label>
+              <input id="email" type="email" autoComplete="email" value={loginValues.email} onChange={(e) => setLoginValues((v) => ({ ...v, email: e.target.value }))} placeholder={t('auth.email.placeholder')} className={buildInputClass(Boolean(loginErrors.email))} />
+              <FieldError id="email-error" message={loginErrors.email} />
+            </div>
+            <div>
+              <label htmlFor="password" className={labelClassName}>{t('auth.password')}</label>
+              <input id="password" type="password" autoComplete="current-password" value={loginValues.password} onChange={(e) => setLoginValues((v) => ({ ...v, password: e.target.value }))} placeholder={t('auth.password.placeholder')} className={buildInputClass(Boolean(loginErrors.password))} />
+              <FieldError id="password-error" message={loginErrors.password} />
+            </div>
+            <button type="submit" disabled={isSubmitting} className={`w-full ${primaryButtonClassName}`}>
+              {isSubmitting ? t('common.save') : t('auth.signIn')}
+            </button>
+            <button type="button" onClick={() => switchMode('register')} className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              {t('auth.noAccount')} {t('auth.createAccount')}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleRegister} className="mt-6 space-y-4" noValidate>
+            <div>
+              <label htmlFor="email" className={labelClassName}>{t('auth.email')}</label>
+              <input id="email" type="email" autoComplete="email" value={registerValues.email} onChange={(e) => setRegisterValues((v) => ({ ...v, email: e.target.value }))} placeholder={t('auth.email.placeholder')} className={buildInputClass(Boolean(registerErrors.email))} />
+              <FieldError id="email-error" message={registerErrors.email} />
+            </div>
+            <div>
+              <label htmlFor="password" className={labelClassName}>{t('auth.password')}</label>
+              <input id="password" type="password" autoComplete="new-password" value={registerValues.password} onChange={(e) => setRegisterValues((v) => ({ ...v, password: e.target.value }))} placeholder={t('auth.password.placeholder')} className={buildInputClass(Boolean(registerErrors.password))} />
+              <FieldError id="password-error" message={registerErrors.password} />
+            </div>
+            <div>
+              <label htmlFor="confirmPassword" className={labelClassName}>{t('auth.confirmPassword')}</label>
+              <input id="confirmPassword" type="password" autoComplete="new-password" value={registerValues.confirmPassword} onChange={(e) => setRegisterValues((v) => ({ ...v, confirmPassword: e.target.value }))} placeholder={t('auth.password.placeholder')} className={buildInputClass(Boolean(registerErrors.confirmPassword))} />
+              <FieldError id="confirmPassword-error" message={registerErrors.confirmPassword} />
+            </div>
+            <div>
+              <label htmlFor="fullName" className={labelClassName}>{t('auth.fullName')}</label>
+              <input id="fullName" type="text" autoComplete="name" value={registerValues.fullName} onChange={(e) => setRegisterValues((v) => ({ ...v, fullName: e.target.value }))} placeholder={t('auth.fullName.placeholder')} className={buildInputClass(Boolean(registerErrors.fullName))} />
+              <FieldError id="fullName-error" message={registerErrors.fullName} />
+            </div>
+            <button type="submit" disabled={isSubmitting} className={`w-full ${primaryButtonClassName}`}>
+              {isSubmitting ? t('common.save') : t('auth.createAccount')}
+            </button>
+            <button type="button" onClick={() => switchMode('login')} className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              {t('auth.hasAccount')} {t('auth.switchToLogin')}
+            </button>
+          </form>
+        )}
 
-          <Field
-            id={mode === 'login' ? 'login-password' : 'register-password'}
-            type="password"
-            label={t('auth.password')}
-            value={mode === 'login' ? loginValues.password : registerValues.password}
-            placeholder={t('auth.password.placeholder')}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            error={mode === 'login' ? loginErrors.password : registerErrors.password}
-            onChange={(value) =>
-              mode === 'login'
-                ? setLoginValues((current) => ({ ...current, password: value }))
-                : setRegisterValues((current) => ({ ...current, password: value }))
-            }
-          />
-
-          {mode === 'register' ? (
-            <Field
-              id="register-confirmPassword"
-              type="password"
-              label={t('auth.confirmPassword')}
-              value={registerValues.confirmPassword}
-              placeholder={t('auth.password.placeholder')}
-              autoComplete="new-password"
-              error={registerErrors.confirmPassword}
-              onChange={(value) =>
-                setRegisterValues((current) => ({ ...current, confirmPassword: value }))
-              }
-            />
-          ) : null}
-
-          <button type="submit" disabled={isSubmitting} className={primaryButtonClassName}>
-            {isSubmitting
-              ? t('common.loading')
-              : mode === 'login'
-                ? t('auth.signIn')
-                : t('auth.createAccount')}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-          {mode === 'login' ? t('auth.noAccount') : t('auth.hasAccount')}{' '}
-          <button
-            type="button"
-            onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
-            className="font-medium text-primary hover:underline"
-          >
-            {mode === 'login' ? t('auth.switchToRegister') : t('auth.switchToLogin')}
-          </button>
-        </p>
-
-        <p className="mt-6 text-center text-sm">
-          <Link href="/landing" className="text-gray-500 hover:underline dark:text-gray-400">
-            {t('app.name')}
-          </Link>
-        </p>
+        <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">{t('footer.rights')}</p>
       </div>
-    </div>
-  );
-}
-
-interface FieldProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
-  type?: 'text' | 'email' | 'password';
-  placeholder?: string;
-  autoComplete?: string;
-}
-
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  error,
-  type = 'text',
-  placeholder,
-  autoComplete,
-}: FieldProps) {
-  const errorId = `${id}-error`;
-
-  return (
-    <div>
-      <label className={labelClassName} htmlFor={id}>
-        {label}
-      </label>
-      <input
-        id={id}
-        type={type}
-        value={value}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
-        className={buildInputClass(Boolean(error))}
-      />
-      <FieldError id={errorId} message={error} />
     </div>
   );
 }
