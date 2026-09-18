@@ -9,7 +9,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  base: '/',
+  // `VITE_BASE_PATH` cho phép phục vụ admin dưới một prefix (proxy-layer route
+  // `/admin/*` → cần `VITE_BASE_PATH=/admin/`, nếu không asset sẽ được tham chiếu
+  // tuyệt đối `/assets/*` và rơi sang user frontend). Mặc định `/` khi chạy trực
+  // tiếp ở cổng 5173.
+  base: process.env.VITE_BASE_PATH ?? '/',
   server: {
     port: 5173,
   },
