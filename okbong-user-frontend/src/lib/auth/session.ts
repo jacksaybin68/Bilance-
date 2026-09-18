@@ -24,12 +24,12 @@ function parseUser(value: unknown): User | null {
         ? value.status
         : 'active',
     createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
+    updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString(),
   };
 }
 
 export function saveSession(user: User, accessToken: string, refreshToken?: string): void {
-  tokenStore.setAccessToken(accessToken);
-  if (refreshToken) tokenStore.setRefreshToken(refreshToken);
+  tokenStore.set(accessToken, refreshToken);
 
   if (typeof window === 'undefined') return;
   try {

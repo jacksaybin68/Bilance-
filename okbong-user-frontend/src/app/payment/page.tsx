@@ -12,21 +12,26 @@ import type { Bill, BillStatus, BillType } from '@/types/api';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
-const TYPE_LABEL: Record<BillType, string> = {
-  recurring: 'Hoa don dinh ky',
-  payment: 'Thanh toan',
-  charging: 'Thu phi',
+const TYPE_LABEL: Record<BillType, MessageKey> = {
+  transfer: 'bill.type.transfer',
+  'e-wallet': 'bill.type.e-wallet',
+  fluctuation: 'bill.type.fluctuation',
+  priority: 'bill.type.priority',
 };
 
-const STATUS_LABEL: Record<BillStatus, string> = {
-  pending: 'Chờ xử lý',
-  paid: 'Đã thanh toán',
-  cancelled: 'Đã huỷ',
+const STATUS_LABEL: Record<BillStatus, MessageKey> = {
+  draft: 'status.bill.draft',
+  pending: 'status.bill.pending',
+  processing: 'status.bill.processing',
+  completed: 'status.bill.completed',
+  cancelled: 'status.bill.cancelled',
 };
 
 const STATUS_CLASS: Record<BillStatus, string> = {
+  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200',
   pending: 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-200',
-  paid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200',
+  processing: 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-200',
+  completed: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-200',
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200',
 };
 

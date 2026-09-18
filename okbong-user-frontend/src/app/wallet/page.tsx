@@ -10,7 +10,7 @@ import { formatCurrency } from '@/lib/format';
 import { useI18n } from '@/lib/i18n';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { toFiniteNumber } from '@/lib/parsers';
-import type { Wallet, WalletStatus, WalletType } from '@/types/api';
+import type { Wallet, WalletStatus, WalletType, Transaction } from '@/types/api';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type WalletAction = 'deposit' | 'withdraw';
@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<WalletStatus, MessageKey> = {
 const STATUS_CLASS: Record<WalletStatus, string> = {
   active: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200',
   pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
-  verified: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-emerald-200',
+  verified: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-200',
   blocked: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-200',
 };
 
@@ -52,6 +52,13 @@ export default function WalletPage() {
     try {
       const wallets = await walletApi.listMine();
       setWallets(wallets);
+      setTransactionErrors((prev) => {
+        const updated = new Map(prev);
+        for (const wallet of wallets) {
+          updated.set(wallet.id, undefined);
+        }
+        return updated;
+      });
       setState('ready');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t('wallet.error')));

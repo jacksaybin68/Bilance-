@@ -20,7 +20,7 @@ export interface I18nContextValue {
 const fallbackValue: I18nContextValue = {
   locale: DEFAULT_LOCALE,
   setLocale: () => undefined,
-  t: (key: MessageKey | string, vars?: Record<string, string | number>) => translate(DEFAULT_LOCALE, key, vars),
+  t: (key, vars) => translate(DEFAULT_LOCALE, key, vars),
 };
 
 const I18nContext = createContext<I18nContextValue>(fallbackValue);
