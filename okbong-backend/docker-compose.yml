@@ -33,6 +33,27 @@ services:
     networks:
       - okbong
 
+  worker:
+    # NOTE: this service runs `node dist/worker.js`, but no src/worker.ts
+    # entrypoint exists in the repo, so the container crash-loops on start.
+    # Start the API explicitly — `docker compose up postgres redis api` —
+    # until a worker entrypoint is added.
+    build:
+      context: ..
+      dockerfile: okbong-backend/docker/backend.Dockerfile
+      target: runtime
+    command: ['node', 'dist/worker.js']
+    env_file:
+      - .env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - okbong
+
   postgres:
     image: postgres:16-alpine
     environment:

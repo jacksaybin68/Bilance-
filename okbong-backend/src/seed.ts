@@ -2,16 +2,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { DataSource } from 'typeorm';
-import { hashPassword } from './common/utils/password.util';
 import { UserEntity, UserStatus } from './user/entity/user.entity';
 import { WalletEntity, WalletStatus } from './wallet/entity/wallet.entity';
 import { BillEntity } from './bill/entity/bill.entity';
 import { BillStatus, BillType } from './bill/dto/bill.dto';
 import { Role } from './enumeration/role.enum';
 import { WalletType } from './wallet/dto/wallet.dto';
-
-/** Mật khẩu mặc định cho các tài khoản seed — dùng để kiểm thử thủ công. */
-const SEED_PASSWORD = '123456';
 
 const opts = {
   type: 'better-sqlite3',
@@ -37,21 +33,21 @@ async function seed() {
   const bob = new UserEntity();
   bob.email = 'bob@nextrading.local';
   bob.fullName = 'Bob Nguyễn';
-  bob.passwordHash = await hashPassword(SEED_PASSWORD);
+  bob.passwordHash = 'scrypt$xx$yy';
   bob.role = Role.USER;
   bob.status = UserStatus.ACTIVE;
 
   const alice = new UserEntity();
   alice.email = 'alice@nextrading.local';
   alice.fullName = 'Alice Trần';
-  alice.passwordHash = await hashPassword(SEED_PASSWORD);
+  alice.passwordHash = 'scrypt$xx$yy';
   alice.role = Role.USER;
   alice.status = UserStatus.ACTIVE;
 
   const admin = new UserEntity();
   admin.email = 'admin@nextrading.local';
   admin.fullName = 'Admin NexTrading';
-  admin.passwordHash = await hashPassword(SEED_PASSWORD);
+  admin.passwordHash = 'scrypt$xx$yy';
   admin.role = Role.ADMIN;
   admin.status = UserStatus.ACTIVE;
 
@@ -98,7 +94,6 @@ async function seed() {
 
   console.log('Seed complete');
   console.log(`  users: ${savedBob.email}, ${savedAlice.email}, ${savedAdmin.email}`);
-  console.log(`  default password for all seeded users: ${SEED_PASSWORD}`);
   console.log(`  wallets: bob=${bobW.balance}, alice=${aliceW.balance}`);
   console.log(`  bills: ${bills.length} created`);
 
