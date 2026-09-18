@@ -6,6 +6,7 @@ import { Alert } from '@/components/ui/Feedback';
 import { useI18n } from '@/lib/i18n';
 import { cardClassName } from '@/components/ui/form';
 
+/** Presents live market prices and links to detailed price views. */
 export default function MarketPage() {
   const { t } = useI18n();
 

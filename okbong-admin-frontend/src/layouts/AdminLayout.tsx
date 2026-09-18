@@ -52,6 +52,7 @@ const NAV_ENTRIES: NavEntry[] = [
   { path: '/cron', labelKey: 'nav.cron', icon: <ScheduleOutlined /> },
 ];
 
+/** Renders the role-aware admin navigation shell and active route content. */
 export function AdminLayout() {
   const { t, locale, setLocale } = useI18n();
   const { mode, toggle } = useThemeMode();

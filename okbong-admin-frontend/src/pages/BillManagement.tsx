@@ -7,6 +7,7 @@ import { billApi, type AdminBillDto } from '@/lib/api/endpoints';
 import { useI18n } from '@/lib/i18n';
 import { DEMO_BILLS } from './demoData';
 
+/** Displays searchable bill records and their canonical API details. */
 export function BillManagement() {
   const { t } = useI18n();
   const [rows, setRows] = useState<AdminBillDto[]>(DEMO_BILLS);

@@ -54,6 +54,7 @@ function readMessages(payload: unknown, fallback: string): string[] {
   return [fallback];
 }
 
+/** Sends an authenticated API request and normalises transport and HTTP errors. */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, signal, token: explicitToken } = options;
   const headers: Record<string, string> = { Accept: 'application/json' };

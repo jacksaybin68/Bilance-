@@ -35,6 +35,7 @@ const STATUS_CLASS: Record<BillStatus, string> = {
   cancelled: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-200',
 };
 
+/** Loads and renders the signed-in user's payment history states. */
 export default function PaymentHistoryPage() {
   const { t, locale } = useI18n();
   const [state, setState] = useState<LoadState>('loading');

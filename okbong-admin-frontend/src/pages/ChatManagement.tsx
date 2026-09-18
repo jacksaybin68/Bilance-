@@ -28,6 +28,7 @@ const TOPIC_LABEL_KEY: Record<ConversationTopic, string> = {
 
 const POLL_INTERVAL_MS = 5000;
 
+/** Manages support conversations, replies, assignments, and status updates. */
 export function ChatManagement() {
   const { t, locale } = useI18n();
   const { message } = App.useApp();

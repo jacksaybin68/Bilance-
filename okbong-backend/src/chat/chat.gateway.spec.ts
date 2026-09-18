@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Role } from '../enumeration/role.enum';
 import { ChatGateway } from './chat.gateway';
 
+/** Builds the minimal Socket.IO client shape required by gateway authorization tests. */
 function buildSocket(token?: string, authorization?: string): Socket {
   return {
     handshake: {

@@ -19,6 +19,7 @@ type LoadState = 'loading' | 'ready' | 'error';
 
 const POLL_INTERVAL_MS = 5000;
 
+/** Opens and polls the signed-in user's support conversation. */
 export default function ChatPage() {
   const { t } = useI18n();
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);

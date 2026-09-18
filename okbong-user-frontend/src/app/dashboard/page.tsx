@@ -29,6 +29,7 @@ const STATUS_CLASS: Record<BillStatus, string> = {
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-200',
 };
 
+/** Summarises the signed-in user's wallets and recent bills. */
 export default function DashboardPage() {
   const { t, locale } = useI18n();
   const [state, setState] = useState<LoadState>('loading');

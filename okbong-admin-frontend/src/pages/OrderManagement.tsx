@@ -62,6 +62,7 @@ interface ResultFormValues {
   reason?: string;
 }
 
+/** Lists orders and lets administrators apply valid result transitions. */
 export function OrderManagement() {
   const { t, locale } = useI18n();
   const { modal, message } = App.useApp();

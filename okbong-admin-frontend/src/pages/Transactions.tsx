@@ -67,6 +67,7 @@ const CONFIRM_KEY: Record<ReviewAction, string> = {
   reverse: 'transaction.reverseConfirm',
 };
 
+/** Reviews transactions and exposes guarded wallet-adjustment controls. */
 export function Transactions() {
   const { t, locale } = useI18n();
   const { modal, message } = App.useApp();

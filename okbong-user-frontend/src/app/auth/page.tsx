@@ -30,6 +30,7 @@ type Mode = 'login' | 'register';
 const emptyLogin = { email: '', password: '' };
 const emptyRegister = { email: '', password: '', confirmPassword: '', fullName: '' };
 
+/** Renders the sign-in and registration flows and persists authenticated sessions. */
 export default function AuthPage() {
   const { t } = useI18n();
   const router = useRouter();

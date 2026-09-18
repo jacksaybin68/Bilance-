@@ -34,6 +34,7 @@ const STATUS_CLASS: Record<WalletStatus, string> = {
   blocked: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-200',
 };
 
+/** Manages wallet balances and user-initiated deposit or withdrawal requests. */
 export default function WalletPage() {
   const { t, locale } = useI18n();
   const [state, setState] = useState<LoadState>('loading');

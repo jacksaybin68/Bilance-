@@ -32,6 +32,7 @@ function buildSparkline(values: number[]): string {
     .join(' ');
 }
 
+/** Displays current and historical prices for the selected market symbol. */
 export default function PricePage() {
   const { t, locale } = useI18n();
   const [symbol, setSymbol] = useState<string>(SYMBOLS[0]);

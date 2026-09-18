@@ -79,6 +79,7 @@ interface PriceTableProps {
   showDetailLink?: boolean;
 }
 
+/** Renders a polling market table with short price-history sparklines. */
 export function PriceTable({ coins = DEFAULT_COINS, showDetailLink = true }: PriceTableProps) {
   const { t, locale } = useI18n();
   const [rows, setRows] = useState<CoinState[]>(() =>

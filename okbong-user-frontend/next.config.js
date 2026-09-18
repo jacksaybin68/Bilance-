@@ -19,6 +19,7 @@ const nextConfig = {
   // Dev proxy: the browser only reaches the public runtime host, so API calls
   // are proxied server-side to the backend. Disabled unless API_PROXY_TARGET
   // is set, so production builds are unaffected.
+  /** Proxies API requests during local development when a backend target is configured. */
   async rewrites() {
     const target = process.env.API_PROXY_TARGET;
     if (!target) return [];
