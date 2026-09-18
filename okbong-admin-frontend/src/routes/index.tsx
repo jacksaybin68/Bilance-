@@ -13,6 +13,11 @@ import { PlanManagement } from '@/pages/PlanManagement';
 import { SettingsPage } from '@/pages/Settings';
 import { ActivityLog } from '@/pages/ActivityLog';
 import { CronJobs } from '@/pages/CronJobs';
+import { MarketConfig } from '@/pages/MarketConfig';
+import { Transactions } from '@/pages/Transactions';
+import { CMS } from '@/pages/CMS';
+import { ChatManagement } from '@/pages/ChatManagement';
+import { OrderManagement } from '@/pages/OrderManagement';
 
 /** Every admin screen is wrapped by the role guard (admin / super_admin). */
 function guarded(element: React.ReactNode, roles?: Parameters<typeof RequireRole>[0]['roles']) {
@@ -36,6 +41,11 @@ export const adminRoutes: RouteObject[] = [
       { path: 'settings', element: guarded(<SettingsPage />, ['super_admin']) },
       { path: 'activity', element: guarded(<ActivityLog />) },
       { path: 'cron', element: guarded(<CronJobs />) },
+      { path: 'market', element: guarded(<MarketConfig />) },
+      { path: 'transactions', element: guarded(<Transactions />) },
+      { path: 'cms', element: guarded(<CMS />) },
+      { path: 'chat', element: guarded(<ChatManagement />) },
+      { path: 'orders', element: guarded(<OrderManagement />) },
     ],
   },
 ];

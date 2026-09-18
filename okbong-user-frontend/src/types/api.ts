@@ -115,6 +115,64 @@ export interface WalletMutationRequest {
   type: WalletType;
 }
 
+export type OrderSide = 'buy' | 'sell';
+export type OrderStatus = 'pending' | 'win' | 'lose';
+export type OrderType = 'LIMIT' | 'MARKET';
+
+export interface Order {
+  id: string;
+  userId: string;
+  pair: string;
+  side: OrderSide;
+  amount: number;
+  price: number;
+  type: OrderType;
+  status: OrderStatus;
+  note?: string | null;
+  settledBy?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface PaginatedOrders {
+  items: Order[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CreateOrderRequest {
+  pair: string;
+  side: OrderSide;
+  amount: number;
+  price?: number;
+  type?: OrderType;
+}
+
+export interface OrderQuery {
+  side?: OrderSide;
+  status?: OrderStatus;
+  userId?: string;
+  page?: number;
+  limit?: number;
+}
+
+export type ChatSenderRole = 'user' | 'admin';
+
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  senderRole: ChatSenderRole;
+  content: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface SendChatMessageRequest {
+  content: string;
+}
+
 export interface BillFilter {
   status?: BillStatus;
   type?: BillType;

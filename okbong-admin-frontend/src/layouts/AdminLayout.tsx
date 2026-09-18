@@ -10,9 +10,14 @@ import {
   AlertOutlined,
   ScheduleOutlined,
   TeamOutlined,
+  SwapOutlined,
+  LineChartOutlined,
+  ReadOutlined,
   LogoutOutlined,
   BulbOutlined,
   TranslationOutlined,
+  MessageOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons';
 import { Button, Breadcrumb, Layout, Menu, Space, Tag, Typography } from 'antd';
 import type { MenuProps } from 'antd';
@@ -44,6 +49,11 @@ const NAV_ENTRIES: NavEntry[] = [
   { path: '/settings', labelKey: 'nav.settings', icon: <SettingOutlined /> },
   { path: '/activity', labelKey: 'nav.activity', icon: <AlertOutlined /> },
   { path: '/cron', labelKey: 'nav.cron', icon: <ScheduleOutlined /> },
+  { path: '/transactions', labelKey: 'nav.transactions', icon: <SwapOutlined /> },
+  { path: '/market', labelKey: 'nav.market', icon: <LineChartOutlined /> },
+  { path: '/cms', labelKey: 'nav.cms', icon: <ReadOutlined /> },
+  { path: '/chat', labelKey: 'nav.chat', icon: <MessageOutlined /> },
+  { path: '/orders', labelKey: 'nav.orders', icon: <ProfileOutlined /> },
 ];
 
 export function AdminLayout() {

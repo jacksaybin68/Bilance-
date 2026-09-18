@@ -18,6 +18,8 @@ import { WalletModule } from './wallet/wallet.module';
 import { KYCModule } from './kyc/kyc.module';
 import { DeadLetterQueueModule } from './queue/dead-letter-queue.module';
 import { OrderModule } from './order/order.module';
+import { AdminModule } from './admin/admin.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -78,6 +80,8 @@ import { OrderModule } from './order/order.module';
     KYCModule,
     DeadLetterQueueModule,
     OrderModule,
+    AdminModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [

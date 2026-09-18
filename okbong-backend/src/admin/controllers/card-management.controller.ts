@@ -1,5 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOkResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,9 +11,14 @@ import { Role } from '../../enumeration/role.enum';
 @Roles(Role.ADMIN, Role.SUPER_ADMIN)
 @Controller('admin/cards')
 export class CardManagementController {
+  /**
+   * No card model exists in the backend yet, so this reports the empty state
+   * instead of fabricated rows. Replace with a CardEntity query when cards land.
+   */
   @Get()
-  @ApiOkResponse({ description: 'Card management list (stub)' })
-  async listCards() {
-    return { stub: true, message: 'Cards endpoint — wire to card module when available' };
+  @ApiOperation({ summary: 'Card list (empty until a card model is added)' })
+  @ApiOkResponse({ description: 'Empty card collection — no card model exists yet' })
+  listCards(): { items: unknown[]; total: number; implemented: boolean } {
+    return { items: [], total: 0, implemented: false };
   }
 }

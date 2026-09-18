@@ -1,34 +1,23 @@
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-} from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import type { TableProps } from 'antd';
-import {
-  App,
-  Button,
-  Form,
-  Input,
-  Modal,
-  Select,
-  Space,
-  Tag,
-  Typography,
-} from 'antd';
-import { useState } from 'react';
+import { App, Button, Form, Input, Modal, Select, Space, Tag, Typography } from 'antd';
+import { useCallback, useState } from 'react';
 import { DataTable } from '@/components/ui/DataTable';
 import { StatusTag } from '@/components/ui/StatusTag';
 import { useI18n } from '@/lib/i18n';
-import { DEMO_POSTS, type PostRow } from './demoData';
+import { errorMessage, useApi } from '@/lib/hooks/useApi';
+import { contentApi, type AdminPostDto } from '@/lib/api/endpoints';
 
-const CATEGORY_LABELS: Record<PostRow['category'], string> = {
+type PostCategory = AdminPostDto['category'];
+type PostStatus = AdminPostDto['status'];
+
+const CATEGORY_LABELS: Record<PostCategory, string> = {
   news: 'Tin tức',
   announcement: 'Thông báo',
   promotion: 'Khuyến mãi',
 };
 
-const CATEGORY_COLORS: Record<PostRow['category'], string> = {
+const CATEGORY_COLORS: Record<PostCategory, string> = {
   news: 'blue',
   announcement: 'purple',
   promotion: 'gold',
@@ -36,36 +25,41 @@ const CATEGORY_COLORS: Record<PostRow['category'], string> = {
 
 interface PostFormValues {
   title: string;
-  category: PostRow['category'];
-  status: PostRow['status'];
+  category: PostCategory;
+  status: PostStatus;
   content: string;
 }
 
+/** Content management backed by `/admin/content` (news / announcements / promos). */
 export function CMS() {
   const { t } = useI18n();
   const { modal, message } = App.useApp();
-  const [rows, setRows] = useState<PostRow[]>(DEMO_POSTS);
-  const [editing, setEditing] = useState<PostRow | null>(null);
-  const [preview, setPreview] = useState<PostRow | null>(null);
+  const [editing, setEditing] = useState<AdminPostDto | null>(null);
+  const [preview, setPreview] = useState<AdminPostDto | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form] = Form.useForm<PostFormValues>();
+
+  const load = useCallback((signal: AbortSignal) => contentApi.list({ limit: 100 }), []);
+  const { data, loading, error, reload } = useApi(load);
+  const rows = data?.items ?? [];
 
   const openNew = () => {
     setIsNew(true);
     setEditing({
-      id: `post-${Date.now()}`,
+      id: '',
       title: '',
       category: 'news',
       status: 'draft',
-      author: 'admin',
+      content: '',
+      author: null,
       publishedAt: null,
       createdAt: new Date().toISOString(),
-      content: '',
     });
     form.resetFields();
+    form.setFieldsValue({ category: 'news', status: 'draft', title: '', content: '' });
   };
 
-  const openEdit = (record: PostRow) => {
+  const openEdit = (record: AdminPostDto) => {
     setIsNew(false);
     setEditing(record);
     form.setFieldsValue({
@@ -76,46 +70,45 @@ export function CMS() {
     });
   };
 
-  const handleSave = (values: PostFormValues) => {
+  const handleSave = async (values: PostFormValues) => {
     if (!editing) return;
-    const updated: PostRow = {
-      ...editing,
-      ...values,
-      publishedAt: values.status === 'published' ? (editing.publishedAt ?? new Date().toISOString()) : editing.publishedAt,
-    };
-
-    if (isNew) {
-      setRows((current) => [updated, ...current]);
-    } else {
-      setRows((current) => current.map((row) => (row.id === editing.id ? updated : row)));
+    try {
+      if (isNew) await contentApi.create(values);
+      else await contentApi.update(editing.id, values);
+      message.success(t('common.save'));
+      setEditing(null);
+      reload();
+    } catch (caught) {
+      message.error(errorMessage(caught, t('common.error')));
     }
-    void message.success(t('common.save'));
-    setEditing(null);
   };
 
-  const handleDelete = (record: PostRow) => {
+  const handleDelete = (record: AdminPostDto) => {
     modal.confirm({
       title: t('common.delete'),
       content: record.title,
       okText: t('common.delete'),
       okType: 'danger',
       cancelText: t('common.cancel'),
-      onOk: () => setRows((current) => current.filter((row) => row.id !== record.id)),
+      onOk: async () => {
+        try {
+          await contentApi.remove(record.id);
+          message.success(t('common.delete'));
+          reload();
+        } catch (caught) {
+          message.error(errorMessage(caught, t('common.error')));
+        }
+      },
     });
   };
 
-  const columns: TableProps<PostRow>['columns'] = [
-    {
-      title: 'Tiêu đề',
-      dataIndex: 'title',
-      key: 'title',
-      ellipsis: true,
-    },
+  const columns: TableProps<AdminPostDto>['columns'] = [
+    { title: 'Tiêu đề', dataIndex: 'title', key: 'title', ellipsis: true },
     {
       title: 'Danh mục',
       dataIndex: 'category',
       key: 'category',
-      render: (value: PostRow['category']) => (
+      render: (value: PostCategory) => (
         <Tag color={CATEGORY_COLORS[value]}>{CATEGORY_LABELS[value]}</Tag>
       ),
     },
@@ -125,7 +118,7 @@ export function CMS() {
       key: 'status',
       render: (value: string) => <StatusTag status={value} />,
     },
-    { title: 'Tác giả', dataIndex: 'author', key: 'author' },
+    { title: 'Tác giả', dataIndex: 'author', key: 'author', render: (value: string | null) => value ?? '—' },
     {
       title: 'Ngày đăng',
       dataIndex: 'publishedAt',
@@ -155,13 +148,16 @@ export function CMS() {
   return (
     <div className="space-y-4">
       <Typography.Title level={3} style={{ margin: 0 }}>
-        CMS – Quản lý bài viết &amp; thông báo
+        {t('page.cms.title')} – Bài viết &amp; thông báo
       </Typography.Title>
 
-      <DataTable<PostRow>
+      {error ? <Typography.Text type="danger">{t('common.error')}</Typography.Text> : null}
+
+      <DataTable<AdminPostDto>
         columns={columns}
         rows={rows}
         rowKey="id"
+        loading={loading}
         searchKeys={['title', 'author']}
         filters={[
           {
@@ -178,8 +174,8 @@ export function CMS() {
             label: t('filter.status'),
             options: [
               { value: 'draft', label: t('status.draft') },
-              { value: 'published', label: 'Đã đăng' },
-              { value: 'archived', label: 'Đã lưu trữ' },
+              { value: 'published', label: t('status.published') },
+              { value: 'archived', label: t('status.archived') },
             ],
           },
         ]}
@@ -190,7 +186,6 @@ export function CMS() {
         }
       />
 
-      {/* Form tạo / sửa bài viết */}
       <Modal
         open={editing !== null}
         title={isNew ? 'Thêm bài viết mới' : 'Chỉnh sửa bài viết'}
@@ -224,8 +219,8 @@ export function CMS() {
               <Select
                 options={[
                   { value: 'draft', label: t('status.draft') },
-                  { value: 'published', label: 'Đã đăng' },
-                  { value: 'archived', label: 'Đã lưu trữ' },
+                  { value: 'published', label: t('status.published') },
+                  { value: 'archived', label: t('status.archived') },
                 ]}
               />
             </Form.Item>
@@ -241,7 +236,6 @@ export function CMS() {
         </Form>
       </Modal>
 
-      {/* Modal xem trước bài viết */}
       <Modal
         open={preview !== null}
         title={preview?.title}
@@ -249,23 +243,18 @@ export function CMS() {
         footer={<Button onClick={() => setPreview(null)}>{t('common.close')}</Button>}
         width={700}
       >
-        {preview && (
+        {preview ? (
           <div className="space-y-3">
             <Space>
               <Tag color={CATEGORY_COLORS[preview.category]}>{CATEGORY_LABELS[preview.category]}</Tag>
               <StatusTag status={preview.status} />
-              <Typography.Text type="secondary">Tác giả: {preview.author}</Typography.Text>
-              {preview.publishedAt && (
-                <Typography.Text type="secondary">
-                  Đăng lúc: {new Date(preview.publishedAt).toLocaleString()}
-                </Typography.Text>
-              )}
+              <Typography.Text type="secondary">Tác giả: {preview.author ?? '—'}</Typography.Text>
             </Space>
             <Typography.Paragraph style={{ whiteSpace: 'pre-wrap' }}>
               {preview.content}
             </Typography.Paragraph>
           </div>
-        )}
+        ) : null}
       </Modal>
     </div>
   );

@@ -8,7 +8,7 @@ import { JwtStrategy } from '../auth/jwt.strategy';
 import { BillStatus } from '../bill/dto/bill.dto';
 import { BillEntity } from '../bill/entity/bill.entity';
 import { PaymentWebhookController } from './payment-webhook.controller';
-import { AppService } from './app.service';
+import { AppService } from '../app.service';
 
 // ---------------------------------------------------------------------------
 // Fixtures
