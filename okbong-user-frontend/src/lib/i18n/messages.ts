@@ -139,6 +139,7 @@ const vi = {
 
   'nav.wallet': 'Ví',
   'nav.market': 'Thị trường',
+  'nav.trade': 'Giao dịch',
 
   'wallet.title': 'Ví của tôi',
   'wallet.balance': 'Số dư',
@@ -255,6 +256,18 @@ const vi = {
   'market.stale': 'Dữ liệu cũ — hệ thống vẫn hoạt động nhưng giá có thể lệch.',
   'market.updatedAt': 'Cập nhật lần cuối {time}',
   'market.error': 'Không tải được dữ liệu thị trường. Vui lòng thử lại.',
+
+  'trade.title': 'Sàn Giao Dịch',
+  'trade.pair': 'Cặp giao dịch',
+  'trade.youPay': 'Bạn trả',
+  'trade.youReceive': 'Bạn nhận',
+  'trade.swap': 'Đổi chiều cặp giao dịch',
+  'trade.rateLine': 'Tỷ giá: 1 {from} ≈ {rate} {to}',
+  'trade.pairRate': '1 {from} = {rate} {to}',
+  'trade.buy': 'Mua {token}',
+  'trade.recent': 'Cặp giao dịch gần đây',
+  'trade.autoRefresh': 'Tự động làm mới mỗi 30 giây',
+  'trade.stale': 'Dữ liệu stale',
 } as const;
 
 export type MessageKey = keyof typeof vi | string;
@@ -389,6 +402,7 @@ const en: Record<string, string> = {
 
   'nav.wallet': 'Wallet',
   'nav.market': 'Market',
+  'nav.trade': 'Trade',
 
   'wallet.title': 'My Wallet',
   'wallet.balance': 'Balance',
@@ -505,6 +519,18 @@ const en: Record<string, string> = {
   'payment.history': 'Payment History',
   'payment.items': 'payments',
   'payment.noReference': 'No reference',
+
+  'trade.title': 'Exchange',
+  'trade.pair': 'Trading pair',
+  'trade.youPay': 'You pay',
+  'trade.youReceive': 'You receive',
+  'trade.swap': 'Swap trading pair',
+  'trade.rateLine': 'Rate: 1 {from} ≈ {rate} {to}',
+  'trade.pairRate': '1 {from} = {rate} {to}',
+  'trade.buy': 'Buy {token}',
+  'trade.recent': 'Recent trading pairs',
+  'trade.autoRefresh': 'Auto-refreshes every 30 seconds',
+  'trade.stale': 'Stale data',
 };
 export const messages: Record<Locale, Record<MessageKey, string>> = { vi, en };
 

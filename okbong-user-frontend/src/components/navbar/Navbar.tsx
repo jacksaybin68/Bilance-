@@ -42,6 +42,7 @@ export function Navbar() {
 
   const isExpressActive = pathname === '/' || pathname === '/landing';
   const isP2PActive = pathname === '/p2p' || pathname === '/market';
+  const isTradeActive = pathname === '/trade';
 
   // Tỷ giá tham chiếu USDT/VND lấy từ API thị trường (không hardcode).
   const { coins, isStale, meta, refresh } = useMarketData({ refreshMs: 30_000 });
@@ -83,6 +84,17 @@ export function Navbar() {
               }`}
             >
               {t('nav.p2p')}
+            </Link>
+
+            <Link
+              href="/trade"
+              className={`relative rounded-md px-3 py-1.5 text-sm font-semibold transition-all ${
+                isTradeActive
+                  ? 'text-black dark:text-white after:absolute after:bottom-[-19px] after:left-0 after:h-[2px] after:w-full after:bg-black dark:after:bg-white'
+                  : 'text-gray-500 hover:text-black dark:text-gray-400 dark:hover:text-white'
+              }`}
+            >
+              {t('nav.trade')}
             </Link>
           </div>
         </div>
@@ -257,6 +269,9 @@ export function Navbar() {
             </Link>
             <Link href="/market" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
               {t('nav.p2p')}
+            </Link>
+            <Link href="/trade" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
+              {t('nav.trade')}
             </Link>
             <Link href="/dashboard" className="rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-900">
               {t('nav.orders')}
