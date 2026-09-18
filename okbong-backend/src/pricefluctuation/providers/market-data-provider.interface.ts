@@ -3,8 +3,8 @@ import { MarketCoinDto } from '../dto/market-coin.dto';
 
 export * from '../dto/asset-class.dto';
 
-/** Nguồn dữ liệu thực tế đã dùng (ADR 008 D4: P2 sẽ thêm `yahoo`). */
-export type MarketSource = 'coingecko' | 'cache';
+/** Nguồn dữ liệu thực tế (ADR 008 D3/D4: P2 thêm `yahoo`). */
+export type MarketSource = 'coingecko' | 'yahoo' | 'cache';
 
 /** Kết quả một provider trả về; orchestrator bọc thêm cache/stale/503. */
 export interface MarketFetchResult {

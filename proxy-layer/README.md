@@ -35,17 +35,17 @@ Giá trị không phải số hợp lệ sẽ bị bỏ qua và dùng mặc đ�
 
 ## Quy tắc rewrite path
 
-| Request vào proxy | Service nhận |
-|---|---|
-| `/api/price/markets?ids=bitcoin` | backend: `/price/markets?ids=bitcoin` |
-| `/api` | backend: `/` |
-| `/admin/assets/index.js` | admin: `/assets/index.js` |
-| `/admin` | admin: `/` |
-| `/market?q=1` | user: `/market?q=1` (giữ nguyên) |
-| `/apifoo` | user: `/apifoo` (không cắt nhầm thành `/foo`) |
+| Request vào proxy | Service nhận | Ghi chú |
+|---|---|---|
+| `/api/price/markets?ids=bitcoin` | backend: `/price/markets?ids=bitcoin` | Cắt `/api` vì backend không có global prefix |
+| `/api` | backend: `/` | Cắt `/api` |
+| `/admin/assets/index.js` | admin: `/admin/assets/index.js` | Giữ nguyên prefix để khớp `VITE_BASE_PATH=/admin/` |
+| `/admin` | admin: `/admin` | Giữ nguyên prefix |
+| `/market?q=1` | user: `/market?q=1` | Giữ nguyên path |
+| `/apifoo` | user: `/apifoo` | Không cắt nhầm thành `/foo` |
 
-WebSocket/HMR (`upgrade`) cũng được cắt prefix tương tự: `/api/socket.io/...` →
-backend `/socket.io/...`; còn lại → user frontend.
+WebSocket/HMR (`upgrade`): `/api/socket.io/...` → cắt `/api/` gửi backend `/socket.io/...`;
+`/admin/*` → giữ nguyên `/admin/*` gửi admin Vite HMR; còn lại → user frontend Next.js.
 
 ## Vì sao không dùng `pathRewrite`
 

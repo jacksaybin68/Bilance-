@@ -152,17 +152,17 @@ test('GET /api/price/markets → backend nhận /price/markets, giữ nguyên qu
     assert.equal(last.headers['x-client-test'], 'yes');
   });
 
-  test('GET /admin/assets/index.js → admin nhận /assets/index.js', async () => {
+  test('GET /admin/assets/index.js → admin nhận /admin/assets/index.js (giữ nguyên base path)', async () => {
     const res = await get('/admin/assets/index.js');
     assert.equal(res.status, 200);
     assert.equal((await res.json()).service, 'admin');
-    assert.equal(admin.seen.at(-1).url, '/assets/index.js');
+    assert.equal(admin.seen.at(-1).url, '/admin/assets/index.js');
   });
 
-  test('GET /admin → admin nhận /', async () => {
+  test('GET /admin → admin nhận /admin (giữ nguyên base path)', async () => {
     const res = await get('/admin');
     assert.equal(res.status, 200);
-    assert.equal((await res.json()).url, '/');
+    assert.equal((await res.json()).url, '/admin');
   });
 
   test('GET /market?q=1 → user frontend nhận nguyên path', async () => {

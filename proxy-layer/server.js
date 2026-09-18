@@ -39,10 +39,14 @@ const ENV_KEYS = {
   backendPort: 'BACKEND_PORT',
 };
 
-/** Prefix được forward tới service riêng; phần còn lại về user frontend. */
+/** Prefix được forward tới service riêng; phần còn lại về user frontend.
+ * - /api: backend NestJS không có global prefix /api nên cần strip prefix.
+ * - /admin: Vite admin frontend đã cấu hình base: '/admin/', cần giữ nguyên prefix
+ *   để tránh 302 redirect loop và load đúng các asset /admin/@vite/client.
+ */
 const ROUTES = [
-  { prefix: '/api', portKey: 'backendPort' },
-  { prefix: '/admin', portKey: 'adminPort' },
+  { prefix: '/api', portKey: 'backendPort', strip: true },
+  { prefix: '/admin', portKey: 'adminPort', strip: false },
 ];
 
 /**
@@ -120,10 +124,14 @@ function createProxyApp(ports = DEFAULT_PORTS) {
 
   const app = express();
 
-  // Các prefix riêng (/api, /admin): cắt prefix rồi forward tới service tương ứng.
+  // Các prefix riêng (/api, /admin): cắt prefix nếu route.strip !== false rồi forward.
   for (const route of ROUTES) {
     app.use(route.prefix, (req, res) => {
-      req.url = stripPrefix(req.originalUrl, route.prefix);
+      if (route.strip !== false) {
+        req.url = stripPrefix(req.originalUrl, route.prefix);
+      } else {
+        req.url = req.originalUrl;
+      }
       proxy.web(req, res, { target: targets[route.portKey] });
     });
   }
@@ -144,12 +152,14 @@ function createProxyServerInstance(ports = DEFAULT_PORTS) {
   const { app, proxy, targets } = createProxyApp(ports);
   const server = http.createServer(app);
 
-  // WebSocket/HMR: nhánh này không đi qua Express nên phải tự cắt prefix.
+  // WebSocket/HMR: nhánh này không đi qua Express nên tự xử lý theo cấu hình route.
   server.on('upgrade', (req, socket, head) => {
     const url = req.url ?? '';
     const route = matchRoute(url);
     if (route) {
-      req.url = stripPrefix(url, route.prefix);
+      if (route.strip !== false) {
+        req.url = stripPrefix(url, route.prefix);
+      }
       proxy.ws(req, socket, head, { target: targets[route.portKey] });
       return;
     }
