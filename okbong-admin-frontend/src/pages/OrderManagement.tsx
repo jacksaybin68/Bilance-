@@ -62,7 +62,11 @@ interface ResultFormValues {
   reason?: string;
 }
 
-/** Lists orders and lets administrators apply valid result transitions. */
+/**
+ * Lists orders and lets administrators apply result transitions, or correct the
+ * recorded result of an already-settled order (which bypasses the transition
+ * table and therefore requires a reason).
+ */
 export function OrderManagement() {
   const { t, locale } = useI18n();
   const { modal, message } = App.useApp();
@@ -108,6 +112,8 @@ export function OrderManagement() {
     });
   };
 
+  const isTerminal = adjusting !== null && TERMINAL_STATUSES.includes(adjusting.status);
+
   const submitResult = async () => {
     if (adjusting === null) return;
 
@@ -128,7 +134,11 @@ export function OrderManagement() {
 
     setSubmitting(true);
     try {
-      await orderAdminApi.setResult(adjusting.id, values);
+      if (isTerminal) {
+        await orderAdminApi.correctResult(adjusting.id, { ...values, reason: values.reason ?? '' });
+      } else {
+        await orderAdminApi.setResult(adjusting.id, values);
+      }
       void message.success(t('ordersAdmin.adjust.success'));
       setAdjusting(null);
       form.resetFields();
@@ -222,10 +232,11 @@ export function OrderManagement() {
             size="small"
             type="primary"
             icon={<EditOutlined />}
-            disabled={TERMINAL_STATUSES.includes(record.status)}
             onClick={() => openAdjust(record)}
           >
-            {t('ordersAdmin.adjustResult')}
+            {TERMINAL_STATUSES.includes(record.status)
+              ? t('ordersAdmin.correctResult')
+              : t('ordersAdmin.adjustResult')}
           </Button>
           <Button
             size="small"
@@ -333,7 +344,7 @@ export function OrderManagement() {
 
       <Modal
         open={adjusting !== null}
-        title={t('ordersAdmin.adjust.title')}
+        title={isTerminal ? t('ordersAdmin.correct.title') : t('ordersAdmin.adjust.title')}
         onCancel={() => setAdjusting(null)}
         onOk={() => void submitResult()}
         okText={t('ordersAdmin.adjust.submit')}
@@ -364,10 +375,12 @@ export function OrderManagement() {
                 rules={[{ required: true }]}
               >
                 <Select
-                  options={ALLOWED_TRANSITIONS[adjusting.status].map((value) => ({
-                    value,
-                    label: t(`status.${value}` as 'status.pending'),
-                  }))}
+                  options={(isTerminal ? ORDER_STATUSES : ALLOWED_TRANSITIONS[adjusting.status]).map(
+                    (value) => ({
+                      value,
+                      label: t(`status.${value}` as 'status.pending'),
+                    }),
+                  )}
                 />
               </Form.Item>
               <Form.Item name="filledAmount" label={t('ordersAdmin.adjust.filledAmount')}>
@@ -376,7 +389,11 @@ export function OrderManagement() {
               <Form.Item name="price" label={t('ordersAdmin.adjust.price')}>
                 <InputNumber min={0} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="reason" label={t('ordersAdmin.adjust.reason')}>
+              <Form.Item
+                name="reason"
+                label={t('ordersAdmin.adjust.reason')}
+                rules={isTerminal ? [{ required: true, message: t('ordersAdmin.correct.reasonRequired') }] : []}
+              >
                 <Input.TextArea rows={2} />
               </Form.Item>
             </Form>

@@ -17,7 +17,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { Role } from '../enumeration/role.enum';
-import { AdminCancelOrderDto, AdminOrderResultDto, OrderQueryDto } from './dto/order-query.dto';
+import { AdminCancelOrderDto, AdminCorrectOrderDto, AdminOrderResultDto, OrderQueryDto } from './dto/order-query.dto';
 import { OrderService } from './order.service';
 
 @ApiTags('admin/orders')
@@ -59,6 +59,20 @@ export class OrderManagementController {
     @CurrentUser() admin: AuthenticatedUser,
   ) {
     return this.orderService.overrideResult(id, dto, admin.id);
+  }
+
+  @Post(':id/correct')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Correct the recorded result of an already-settled order (requires a reason)',
+  })
+  @ApiOkResponse({ description: 'Corrected order' })
+  correct(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminCorrectOrderDto,
+    @CurrentUser() admin: AuthenticatedUser,
+  ) {
+    return this.orderService.correctResult(id, dto, admin.id);
   }
 
   @Post(':id/cancel')

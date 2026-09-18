@@ -15,6 +15,8 @@ export enum ActivityAction {
   USER_BAN = 'user_ban',
   USER_UNBAN = 'user_unban',
   SETTINGS_CHANGE = 'settings_change',
+  ORDER_UPDATE = 'order_update',
+  ORDER_CORRECT = 'order_correct',
   UNKNOWN = 'unknown',
 }
 

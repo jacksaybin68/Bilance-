@@ -252,6 +252,9 @@ export const orderAdminApi = {
   /** Admin override of the order result. */
   setResult: (id: string, payload: { status: OrderStatus; filledAmount?: number; price?: number; reason?: string }) =>
     apiClient.post<AdminOrderDto>(`/admin/orders/${id}/result`, payload),
+  /** Correct the recorded result of an already-settled order (reason required). */
+  correctResult: (id: string, payload: { status: OrderStatus; filledAmount?: number; price?: number; reason: string }) =>
+    apiClient.post<AdminOrderDto>(`/admin/orders/${id}/correct`, payload),
   cancel: (id: string, reason?: string) =>
     apiClient.post<AdminOrderDto>(`/admin/orders/${id}/cancel`, { reason }),
 };

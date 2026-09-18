@@ -118,3 +118,34 @@ export class AdminCancelOrderDto {
   @MaxLength(255)
   reason?: string;
 }
+
+/**
+ * Corrects the recorded outcome of an order that already reached a terminal
+ * status (COMPLETED / CANCELLED / EXPIRED). Unlike {@link AdminOrderResultDto}
+ * this deliberately bypasses the transition table, so the reason is mandatory
+ * and the previous values are preserved in the audit log.
+ */
+export class AdminCorrectOrderDto {
+  @ApiProperty({ enum: OrderStatus })
+  @IsEnum(OrderStatus)
+  status!: OrderStatus;
+
+  @ApiPropertyOptional({ description: 'Cumulative filled quantity after the correction' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 8 })
+  @Min(0)
+  filledAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Execution price recorded for the correction' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 8 })
+  @Min(0)
+  price?: number;
+
+  @ApiProperty({ description: 'Why the terminal result is being corrected' })
+  @IsString()
+  @MaxLength(255)
+  reason!: string;
+}

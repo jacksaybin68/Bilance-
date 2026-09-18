@@ -13,7 +13,12 @@ import { ActivityAction } from '../admin/entities/activity-log.entity';
 import { ActivityLogService } from '../admin/services/activity-log.service';
 import { UserEntity } from '../user/entity/user.entity';
 import { OrderGateway } from './order.gateway';
-import { AdminOrderResultDto, CreateOrderDto, OrderQueryDto } from './dto/order-query.dto';
+import {
+  AdminCorrectOrderDto,
+  AdminOrderResultDto,
+  CreateOrderDto,
+  OrderQueryDto,
+} from './dto/order-query.dto';
 import { OrderStatus } from './dto/order.dto';
 import { OrderType } from './dto/order-type.enum';
 import { OrderEntity } from './entity/order.entity';
@@ -47,6 +52,13 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.EXPIRED]: [],
 };
+
+/** Statuses an order can no longer leave through the normal transition table. */
+const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = [
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.EXPIRED,
+];
 
 @Injectable()
 export class OrderService {
@@ -230,7 +242,7 @@ export class OrderService {
 
     await this.recordAdminAction(
       adminId,
-      ActivityAction.BILL_UPDATE,
+      ActivityAction.ORDER_UPDATE,
       `Điều chỉnh kết quả lệnh ${id} → ${dto.status}${dto.reason ? ` — ${dto.reason}` : ''}`,
       {
         orderId: id,
@@ -241,6 +253,75 @@ export class OrderService {
     );
 
     this.logger.log(`admin ${adminId} overrode order ${id} to ${dto.status}`);
+    return saved;
+  }
+
+  /**
+   * Corrects the recorded result of an order that has already reached a terminal
+   * status. `overrideResult` refuses these transitions by design, so this path is
+   * the only way to fix a settled order — it therefore demands a reason and keeps
+   * the previous values in the audit log.
+   */
+  async correctResult(
+    id: string,
+    dto: AdminCorrectOrderDto,
+    adminId: string,
+  ): Promise<OrderEntity> {
+    const order = await this.findOne(id);
+
+    if (!TERMINAL_ORDER_STATUSES.includes(order.status)) {
+      throw new BadRequestException(
+        `Order ${id} is still ${order.status}; use POST /admin/orders/${id}/result instead`,
+      );
+    }
+
+    const previous = {
+      status: order.status,
+      filledAmount: Number(order.filledAmount),
+      price: Number(order.price),
+    };
+
+    if (dto.filledAmount !== undefined) {
+      const requested = roundAmount(dto.filledAmount);
+      if (requested > Number(order.amount)) {
+        throw new BadRequestException(
+          `filledAmount ${requested} exceeds the order amount ${order.amount}`,
+        );
+      }
+      order.filledAmount = requested;
+    }
+
+    if (dto.price !== undefined) order.price = roundAmount(dto.price);
+    order.status = dto.status;
+
+    const saved = await this.orderRepository.save(order);
+
+    if (saved.status === OrderStatus.CANCELLED) {
+      this.orderGateway.broadcastOrderCancelled(saved);
+    } else if (saved.status === OrderStatus.COMPLETED) {
+      this.orderGateway.broadcastOrderMatched(saved);
+    }
+    this.orderGateway.broadcastOrderUpdated(saved);
+
+    await this.recordAdminAction(
+      adminId,
+      ActivityAction.ORDER_CORRECT,
+      `Đính chính kết quả lệnh ${id}: ${previous.status} → ${dto.status} — ${dto.reason}`,
+      {
+        orderId: id,
+        reason: dto.reason,
+        previousStatus: previous.status,
+        previousFilledAmount: previous.filledAmount,
+        previousPrice: previous.price,
+        status: dto.status,
+        filledAmount: Number(saved.filledAmount),
+        price: Number(saved.price),
+      },
+    );
+
+    this.logger.warn(
+      `admin ${adminId} corrected terminal order ${id}: ${previous.status} → ${dto.status} (${dto.reason})`,
+    );
     return saved;
   }
 
