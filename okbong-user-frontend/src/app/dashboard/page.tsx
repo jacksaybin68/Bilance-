@@ -136,7 +136,7 @@ export default function DashboardPage() {
                     key={bill.id}
                     className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 dark:bg-gray-700/50"
                   >
-                    <span className="text-sm text-gray-700 dark:text-gray-200">{bill.content}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{bill.description}</span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[bill.status]}`}
                     >

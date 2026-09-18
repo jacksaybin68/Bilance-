@@ -25,7 +25,8 @@ export interface AdminBillDto {
   id: string;
   userId: string;
   type: 'transfer' | 'e-wallet' | 'fluctuation' | 'priority';
-  content: string;
+  /** Canonical field returned by the API (`content` is only a request-side alias). */
+  description?: string | null;
   status: 'draft' | 'pending' | 'processing' | 'completed' | 'cancelled';
   createdAt: string;
 }

@@ -36,7 +36,7 @@ export function BillManagement() {
   const columns: TableProps<AdminBillDto>['columns'] = [
     { title: t('table.type'), dataIndex: 'type', key: 'type', render: (value: string) => <Tag color="blue">{value}</Tag> },
     { title: t('table.user'), dataIndex: 'userId', key: 'userId' },
-    { title: t('table.details'), dataIndex: 'content', key: 'content' },
+    { title: t('table.details'), dataIndex: 'description', key: 'description' },
     { title: t('table.status'), dataIndex: 'status', key: 'status', render: (value: string) => <StatusTag status={value} /> },
     { title: t('table.createdAt'), dataIndex: 'createdAt', key: 'createdAt', render: (value: string) => new Date(value).toLocaleString() },
     {
@@ -62,7 +62,7 @@ export function BillManagement() {
         rows={rows}
         rowKey="id"
         loading={loading}
-        searchKeys={['userId', 'content']}
+        searchKeys={['userId', 'description']}
         filters={[
           {
             key: 'status',
@@ -97,7 +97,7 @@ export function BillManagement() {
           <div className="space-y-2 text-sm">
             <p>ID: {detail.id}</p>
             <p>{t('table.user')}: {detail.userId}</p>
-            <p>{t('table.details')}: {detail.content}</p>
+            <p>{t('table.details')}: {detail.description}</p>
             <p>{t('table.status')}: <StatusTag status={detail.status} /></p>
           </div>
         ) : null}

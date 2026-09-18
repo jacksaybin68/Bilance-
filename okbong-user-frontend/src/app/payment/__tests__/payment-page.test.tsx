@@ -57,7 +57,7 @@ describe('Payment history page', () => {
     });
 
     expect(screen.getByText('Lịch sử thanh toán')).toBeTruthy();
-    expect(screen.getByText('2 thanh toán')).toBeTruthy();
+    expect(screen.getByText('2 giao dịch')).toBeTruthy();
     expect(screen.getByText('Thanh toán hóa đơn điện')).toBeTruthy();
     expect(screen.getByText('Nạp ví điện tử')).toBeTruthy();
   });
@@ -68,13 +68,14 @@ describe('Payment history page', () => {
     render(<PaymentHistoryPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('Không có thanh toán nào.')).toBeTruthy();
+      expect(screen.getByText('Chưa có giao dịch nào.')).toBeTruthy();
     });
   });
 
   it('shows error state and retry button when load fails', async () => {
+    // getErrorMessage surfaces plain Error messages from a rejected request.
     (billApi.list as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('Network error'),
+      new Error('Không tải được lịch sử thanh toán. Vui lòng thử lại.'),
     );
 
     render(<PaymentHistoryPage />);

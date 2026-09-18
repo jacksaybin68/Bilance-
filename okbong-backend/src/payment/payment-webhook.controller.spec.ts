@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { BillStatus } from '../bill/dto/bill.dto';
 import { BillEntity } from '../bill/entity/bill.entity';
 import { PaymentWebhookController, PaymentWebhookPayload } from './payment-webhook.controller';
-import { AppService } from './app.service';
+import { AppService } from '../app.service';
 
 type MockBillRepo = {
   findOneBy: ReturnType<typeof vi.fn>;
@@ -137,7 +137,11 @@ describe('PaymentWebhookController', () => {
     });
 
     it('accept khi signature khớp', async () => {
-      const payload = makePayload({ signature: undefined });
+      const billId = 'bill-sig-ok';
+      const bill = { id: billId, userId: 'u1', amount: 100000, status: BillStatus.PENDING, type: 'payment', description: null, createdAt: new Date(), updatedAt: new Date() } as BillEntity;
+      billRepo.findOneBy.mockResolvedValue(bill);
+
+      const payload = makePayload({ billId, signature: undefined });
       const expectedSig = appService.computeWebhookSignature(payload, WEBHOOK_SECRET);
       const result = await controller.handleWebhook(payload, WEBHOOK_SECRET, expectedSig);
       expect(result).toEqual({ received: true, processed: 'success' });

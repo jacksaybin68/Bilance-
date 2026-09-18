@@ -78,10 +78,10 @@ export const DEMO_WALLETS: AdminWalletDto[] = [
 ];
 
 export const DEMO_BILLS: AdminBillDto[] = [
-  { id: 'bil-001', userId: 'usr-001', type: 'transfer', content: 'VCB transfer', status: 'completed', createdAt: '2026-01-15T09:00:00Z' },
-  { id: 'bil-002', userId: 'usr-002', type: 'e-wallet', content: 'Wallet top-up', status: 'pending', createdAt: '2026-01-14T09:00:00Z' },
-  { id: 'bil-003', userId: 'usr-003', type: 'fluctuation', content: 'BDSD price order', status: 'processing', createdAt: '2026-01-13T09:00:00Z' },
-  { id: 'bil-004', userId: 'usr-001', type: 'priority', content: 'Priority settlement', status: 'completed', createdAt: '2026-01-12T09:00:00Z' },
+  { id: 'bil-001', userId: 'usr-001', type: 'transfer', description: 'VCB transfer', status: 'completed', createdAt: '2026-01-15T09:00:00Z' },
+  { id: 'bil-002', userId: 'usr-002', type: 'e-wallet', description: 'Wallet top-up', status: 'pending', createdAt: '2026-01-14T09:00:00Z' },
+  { id: 'bil-003', userId: 'usr-003', type: 'fluctuation', description: 'BDSD price order', status: 'processing', createdAt: '2026-01-13T09:00:00Z' },
+  { id: 'bil-004', userId: 'usr-001', type: 'priority', description: 'Priority settlement', status: 'completed', createdAt: '2026-01-12T09:00:00Z' },
 ];
 
 export const DEMO_BANNED_USERS: BannedUserRow[] = [

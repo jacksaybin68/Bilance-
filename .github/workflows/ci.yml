@@ -1,0 +1,108 @@
+name: CI
+
+# Runs the unit suites for every workspace package on pull requests and on main.
+# The `dependabot-auto-merge` job at the bottom reuses these jobs as a hard gate,
+# so a Dependabot PR is only merged once every test job has passed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (unit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: okbong-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: okbong-backend/package-lock.json
+      # `@nestjs/schedule@6` does not yet declare `@nestjs/common@12` as a peer,
+      # so the backend tree only resolves with legacy peer resolution.
+      - run: npm ci --legacy-peer-deps
+      - run: npm run typecheck
+      - run: npm test
+
+  admin-frontend:
+    name: Admin frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: okbong-admin-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: okbong-admin-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  user-frontend:
+    name: User frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: okbong-user-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: okbong-user-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  dependabot-auto-merge:
+    name: Auto-merge Dependabot PR
+    # `needs` is the gate: this job is skipped unless all three suites succeeded.
+    needs: [backend, admin-frontend, user-frontend]
+    if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    # Write access is scoped to this job only; the test jobs stay read-only and
+    # this job never checks out or executes the pull request's code.
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Patch and minor bumps are mergeable once the suites are green. Major
+      # updates can contain breaking changes and are left for a human to review.
+      - name: Enable auto-merge for patch and minor updates
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash "$PR_URL"
+
+      - name: Note skipped major update
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body \
+            "This is a **major** version update, so it is not auto-merged. Please review it manually."

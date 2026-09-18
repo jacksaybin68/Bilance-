@@ -79,7 +79,8 @@ export interface Bill {
   userId: string;
   type: BillType;
   amount: number;
-  content: string;
+  /** Canonical field returned by the API (`content` is only a request-side alias). */
+  description?: string | null;
   status: BillStatus;
   createdAt: string;
 }

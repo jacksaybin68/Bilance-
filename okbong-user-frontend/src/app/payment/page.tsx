@@ -71,39 +71,29 @@ export default function PaymentHistoryPage() {
 
       {state === 'loading' ? (
         <Spinner label={t('common.loading')} />
+      ) : state === 'error' ? (
+        <button
+          type="button"
+          onClick={() => void load()}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
+        >
+          {t('common.retry')}
+        </button>
+      ) : bills.length === 0 ? (
+        <div className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-800">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('payment.empty')}
+          </p>
+        </div>
       ) : (
         <>
-          {state === 'error' ? (
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="mb-4 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-            >
-              {t('common.retry')}
-            </button>
-          ) : null}
-
-          {bills.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-800">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t('payment.empty')}
-              </p>
-              <button
-                type="button"
-                onClick={() => void load()}
-                className="mt-3 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600"
-              >
-                {t('common.retry')}
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-800">
+          <div className="rounded-2xl border border-gray-200/70 bg-white p-6 shadow-sm dark:border-gray-700/60 dark:bg-gray-800">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   {t('payment.history')}
                 </h2>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {bills.length} {t('payment.items')}
+                  {t('payment.items', { count: bills.length })}
                 </span>
               </div>
 
@@ -116,7 +106,7 @@ export default function PaymentHistoryPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {bill.content ?? t('payment.noReference')}
+                          {bill.description ?? t('payment.noReference')}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {t(TYPE_LABEL[bill.type])} ·{' '}
@@ -141,8 +131,7 @@ export default function PaymentHistoryPage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+          </div>
         </>
       )}
     </div>
