@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
@@ -7,8 +8,10 @@ import {
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
+  WsException,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
+import { Role } from '../enumeration/role.enum';
 import { MessageSenderRole, type MessageEntity } from './entities/message.entity';
 import type { ConversationEntity } from './entities/conversation.entity';
 
@@ -45,6 +48,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   static readonly ADMINS_ROOM = 'admins';
 
+  constructor(private readonly jwtService: JwtService) {}
+
   @WebSocketServer()
   server!: Server;
 
@@ -80,6 +85,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('chat:join:admin')
   handleJoinAdmins(@ConnectedSocket() client: Socket): void {
+    const token = this.accessToken(client);
+
+    try {
+      const user = this.jwtService.verify<{ role?: Role }>(token);
+      if (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) {
+        throw new WsException('Forbidden');
+      }
+    } catch {
+      throw new WsException('Unauthorized');
+    }
+
     void client.join(ChatGateway.ADMINS_ROOM);
     client.emit('chat:joined', { room: ChatGateway.ADMINS_ROOM });
   }
@@ -111,6 +127,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private conversationRoom(conversationId: string): string {
     return `conversation:${conversationId}`;
+  }
+
+  private accessToken(client: Socket): string {
+    const authToken = client.handshake.auth?.token;
+    const authorization = client.handshake.headers.authorization;
+    const bearerToken = typeof authorization === 'string' && authorization.startsWith('Bearer ')
+      ? authorization.slice(7)
+      : undefined;
+    const token = typeof authToken === 'string' ? authToken : bearerToken;
+
+    if (!token) throw new WsException('Unauthorized');
+    return token;
   }
 
   private toMessagePayload(message: MessageEntity): ChatMessagePayload {
