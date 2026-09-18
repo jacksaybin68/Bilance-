@@ -2,6 +2,7 @@ import { Controller, Get, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ApiTags, ApiOperation, ApiOkResponse, ApiQuery } from '@nestjs/swagger';
 import { MarketCoinDto, MarketQueryDto } from './dto/market-coin.dto';
+import { ASSET_CLASSES, DEFAULT_ASSET_CLASS } from './dto/asset-class.dto';
 import { PriceQueryDto } from './dto/price-query.dto';
 import { PriceHistoryEntity } from './entity/price-history.entity';
 import { MarketDataService } from './market-data.service';
@@ -25,12 +26,31 @@ export class PriceFluctuationController {
   })
   @ApiQuery({ name: 'vs', required: false, enum: ['vnd', 'usd'], example: 'vnd' })
   @ApiQuery({ name: 'ids', required: false, example: 'bitcoin,ethereum,tether' })
+  @ApiQuery({
+    name: 'assetClass',
+    required: false,
+    enum: ASSET_CLASSES,
+    example: DEFAULT_ASSET_CLASS,
+    description:
+      `Lớp tài sản cần lấy (ADR 008). Mặc định \`${DEFAULT_ASSET_CLASS}\` — hành vi cũ không đổi.`,
+  })
+  @ApiQuery({
+    name: 'symbols',
+    required: false,
+    example: 'AAPL,VCB.VN',
+    description: 'Symbol cho asset class không phải crypto (không dùng cùng `ids`).',
+  })
   @ApiOkResponse({ type: [MarketCoinDto] })
   async markets(
     @Query() query: MarketQueryDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<MarketCoinDto[]> {
-    const result = await this.marketDataService.getMarkets({ vs: query.vs, ids: query.ids });
+    const result = await this.marketDataService.getMarkets({
+      vs: query.vs,
+      ids: query.ids,
+      assetClass: query.assetClass,
+      symbols: query.symbols,
+    });
 
     response.setHeader('X-Market-Source', result.source);
     response.setHeader('X-Market-Cached', String(result.cached));

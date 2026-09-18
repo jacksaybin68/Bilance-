@@ -18,19 +18,27 @@ Backend **NEVER** bịa giá. Không có dữ liệu ⇒ trả lỗi chuẩn c�
 
 ```
 GET /price/markets?vs=vnd&ids=bitcoin,ethereum,tether,solana,dogecoin,zcash
+GET /price/markets?assetClass=equity&symbols=AAPL,VCB.VN   (P2+ của ADR 008)
 ```
 
 - **Không cần JWT** (giống `/price/current`, `/price/history`).
 - `vs` (tuỳ chọn, mặc định `vnd`): chỉ hỗ trợ `vnd` | `usd`.
-- `ids` (tuỳ chọn): danh sách id CoinGecko, phân tách bằng dấu phẩy. Mặc định lấy
-  từ biến môi trường `MARKET_COIN_IDS`.
+- `assetClass` (tuỳ chọn, mặc định `crypto` — bổ sung theo ADR 008, **additive**):
+  `crypto | equity | fx | bond | commodity | index`. Hiện chỉ `crypto` có provider;
+  giá trị khác chưa đăng ký ⇒ `400`.
+- `ids` (tuỳ chọn): danh sách id CoinGecko, phân tách bằng dấu phẩy. Chỉ hợp lệ khi
+  `assetClass=crypto`. Mặc định lấy từ biến môi trường `MARKET_COIN_IDS`.
+- `symbols` (tuỳ chọn, bổ sung theo ADR 008): danh sách symbol phân tách bằng dấu
+  phẩy cho asset class không phải crypto, regex `^[A-Za-z0-9.,=^-]+$` (ví dụ
+  `AAPL,VCB.VN` hoặc `USDVND=X`). Bắt buộc khi `assetClass != crypto`; truyền
+  `symbols` khi `assetClass=crypto` (hoặc `ids` khi khác crypto) ⇒ `400`.
 
 ### Response 200 — mảng `MarketCoinDto[]`
 
 ```jsonc
 [
   {
-    "id": "bitcoin",                       // id CoinGecko
+    "id": "bitcoin",                       // id CoinGecko (crypto) hoặc symbol (P2+)
     "symbol": "BTC",                       // UPPERCASE
     "name": "Bitcoin",
     "image": "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png?1696501400",
@@ -41,7 +49,8 @@ GET /price/markets?vs=vnd&ids=bitcoin,ethereum,tether,solana,dogecoin,zcash
     "marketCap": 39827152756985760,        // có thể null
     "sparkline": [1955032847, 1967...],    // ~168 điểm giá 7 ngày, cùng đơn vị `vs`; [] nếu không có
     "updatedAt": "2026-09-17T11:58:00.000Z",
-    "stale": false                         // true khi trả cache cũ do nguồn lỗi
+    "stale": false,                        // true khi trả cache cũ do nguồn lỗi
+    "assetClass": "crypto"                 // optional, bổ sung ADR 008; mặc định/crypto
   }
 ]
 ```
@@ -58,11 +67,18 @@ Header bổ sung:
 
 | Mã | Khi nào |
 |---|---|
-| `400` | `vs` ngoài `vnd`/`usd`, hoặc `ids` chứa ký tự không hợp lệ |
+| `400` | `vs` ngoài `vnd`/`usd`, `ids`/`symbols` chứa ký tự không hợp lệ, `assetClass` không nằm trong enum, `assetClass` chưa có provider, hoặc sai cặp tham số (`symbols`+crypto, `ids`+khác crypto, thiếu `symbols` khi khác crypto) |
 | `503` | nguồn ngoài lỗi/timeout **và** cache rỗng (body theo `AllExceptionsFilter`) |
 
 ## Ràng buộc triển khai (backend)
 
+- Kiến trúc provider (ADR 008 D2): `MarketDataService` là **orchestrator** — chọn
+  provider theo `assetClass`, cache in-memory + dedupe request đang bay, và giữ
+  **một** luật lỗi duy nhất. Provider (`providers/`) chỉ nói chuyện với nguồn ngoài
+  và map DTO, không tự set HTTP status, không tự cache, không tự quyết `stale`.
+- Thêm asset class mới (P2+): viết `XxxProvider implements MarketDataProvider`,
+  đăng ký vào `MARKET_DATA_PROVIDERS` trong `pricefluctuation.module.ts`. Không sửa
+  orchestrator, không đổi hành vi crypto.
 - `fetch` của Node (>= 20), `AbortSignal.timeout(8000)`; không thêm dependency HTTP.
 - Cache in-memory + dedupe request đang bay (một request mạng cho N client đồng thời).
 - TTL: `MARKET_CACHE_TTL_MS` (mặc định `30000`).

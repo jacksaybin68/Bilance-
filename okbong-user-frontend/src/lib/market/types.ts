@@ -24,6 +24,11 @@ export interface MarketCoin {
   updatedAt: string;
   /** `true` khi backend phải trả cache cũ vì nguồn ngoài đang lỗi. */
   stale: boolean;
+  /**
+   * Lớp tài sản (ADR 008): `crypto | equity | fx | bond | commodity | index`.
+   * Optional để tương thích ngược với payload cũ chưa có field này.
+   */
+  assetClass?: 'crypto' | 'equity' | 'fx' | 'bond' | 'commodity' | 'index';
 }
 
 export type MarketSource = 'coingecko' | 'cache' | 'fallback';

@@ -7,6 +7,12 @@ import {
   IsArray,
   IsNumber,
 } from 'class-validator';
+import {
+  ASSET_CLASSES,
+  DEFAULT_ASSET_CLASS,
+  IMPLEMENTED_ASSET_CLASSES,
+  type AssetClass,
+} from './asset-class.dto';
 
 export class MarketCoinDto {
   @ApiProperty({ example: 'bitcoin', description: 'ID CoinGecko' })
@@ -74,6 +80,14 @@ export class MarketCoinDto {
       'true nếu dữ liệu lấy từ cache cũ do nguồn lỗi/timeout',
   })
   stale?: boolean;
+
+  @ApiPropertyOptional({
+    enum: ASSET_CLASSES,
+    default: DEFAULT_ASSET_CLASS,
+    description:
+      'Lớp tài sản của entry (ADR 008). Mặc định `crypto` khi không có provider khác.',
+  })
+  assetClass?: AssetClass;
 }
 
 export class MarketMetaDto {
@@ -103,6 +117,17 @@ export class MarketQueryDto {
   vs?: 'vnd' | 'usd' = 'vnd';
 
   @ApiPropertyOptional({
+    enum: ASSET_CLASSES,
+    default: DEFAULT_ASSET_CLASS,
+    description:
+      `Lớp tài sản cần lấy (ADR 008). Mặc định \`${DEFAULT_ASSET_CLASS}\` (không đổi hành vi cũ). ` +
+      `Hiện có provider: ${IMPLEMENTED_ASSET_CLASSES.join(', ')}.`,
+  })
+  @IsOptional()
+  @IsIn(ASSET_CLASSES)
+  assetClass?: AssetClass = DEFAULT_ASSET_CLASS;
+
+  @ApiPropertyOptional({
     description:
       'Danh sách id CoinGecko phân tách bằng dấu phẩy (chỉ cho phép a-z0-9 và dấu phẩy)',
     required: false,
@@ -115,4 +140,19 @@ export class MarketQueryDto {
       'ids chỉ được chứa ký tự a-z, 0-9 và dấu phẩy. Ví dụ: bitcoin,ethereum,usd-coin',
   })
   ids?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Danh sách symbol phân tách bằng dấu phẩy cho asset class không phải crypto, ' +
+      'ví dụ `AAPL,VCB.VN` (equity) hoặc `USDVND=X` (fx). Không dùng cùng `ids`.',
+    required: false,
+    example: 'AAPL,VCB.VN',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9.,=^-]+$/, {
+    message:
+      'symbols chỉ được chứa ký tự chữ, số và các ký tự . , = ^ -. Ví dụ: AAPL,VCB.VN',
+  })
+  symbols?: string;
 }

@@ -1,48 +1,61 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MarketCoinDto } from './dto/market-coin.dto';
+import {
+  ASSET_CLASSES,
+  AssetClass,
+  DEFAULT_ASSET_CLASS,
+  MARKET_DATA_PROVIDERS,
+  MarketDataProvider,
+  MarketFetchResult,
+} from './providers/market-data-provider.interface';
 
-interface CoinGeckoMarketResponse {
-  id: string;
-  symbol: string;
-  name: string;
-  image: string;
-  current_price: number | null;
-  price_change_percentage_24h: number | null;
-  total_volume: number | null;
-  market_cap: number | null;
-  sparkline_in_7d: { price: number[] } | null;
-  last_updated: string;
+export type { MarketFetchResult } from './providers/market-data-provider.interface';
+
+export interface GetMarketsParams {
+  vs?: 'vnd' | 'usd';
+  /** CoinGecko id — chỉ hợp lệ với `assetClass=crypto`. */
+  ids?: string;
+  assetClass?: AssetClass;
+  /** Symbol cho asset class không phải crypto (ADR 008 D1). */
+  symbols?: string;
 }
-
-export interface MarketFetchResult {
-  coins: MarketCoinDto[];
-  source: 'coingecko' | 'cache';
-  cached: boolean;
-  updatedAt: string;
-}
-
-const DEFAULT_API_BASE = 'https://api.coingecko.com/api/v3';
-const DEFAULT_IDS = 'bitcoin,ethereum,tether,solana,dogecoin,zcash';
 
 /**
- * Nguồn dữ liệu thị trường thật (CoinGecko). Cache in-memory + dedupe request
- * đang bay; khi nguồn lỗi mà còn cache thì trả bản cũ kèm `stale: true` thay vì
- * bịa số. Hợp đồng: `docs/contracts/trading-market-data.md`.
+ * Orchestrator dữ liệu thị trường (ADR 008 D2): chọn provider theo `assetClass`,
+ * cache in-memory + dedupe request đang bay, và giữ **một** luật lỗi duy nhất —
+ * nguồn lỗi mà còn cache thì trả bản cũ với `stale: true`, hết cache thì `503`.
+ * Backend **không bao giờ** bịa giá. Hợp đồng: `docs/contracts/trading-market-data.md`.
  */
 @Injectable()
 export class MarketDataService {
   private readonly logger = new Logger(MarketDataService.name);
+  private readonly providers = new Map<AssetClass, MarketDataProvider>();
   private readonly cache = new Map<string, { coins: MarketCoinDto[]; fetchedAt: number }>();
   private readonly inFlight = new Map<string, Promise<MarketFetchResult>>();
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    @Inject(MARKET_DATA_PROVIDERS)
+    private readonly providerList: MarketDataProvider[],
+    private readonly config: ConfigService,
+  ) {
+    for (const provider of providerList) {
+      this.providers.set(provider.assetClass, provider);
+    }
+  }
 
-  async getMarkets(params: { vs?: 'vnd' | 'usd'; ids?: string }): Promise<MarketFetchResult> {
+  /** Danh sách asset class đã có provider (dùng cho thông báo lỗi). */
+  supportedAssetClasses(): AssetClass[] {
+    return [...this.providers.keys()];
+  }
+
+  async getMarkets(params: GetMarketsParams = {}): Promise<MarketFetchResult> {
     const vs = params.vs ?? 'vnd';
-    const ids = params.ids ?? this.config.get<string>('MARKET_COIN_IDS') ?? DEFAULT_IDS;
-    const cacheKey = `${vs}:${ids}`;
-    const cacheTtl = Number(this.config.get<string>('MARKET_CACHE_TTL_MS') ?? 30_000);
+    const assetClass = params.assetClass ?? DEFAULT_ASSET_CLASS;
+    const provider = this.resolveProvider(assetClass);
+    const symbols = this.resolveSymbols(assetClass, params);
+    const cacheKey = `${provider.assetClass}:${vs}:${symbols}`;
+    const cacheTtl = provider.cacheTtlMs();
 
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < cacheTtl) {
@@ -57,7 +70,7 @@ export class MarketDataService {
     const existing = this.inFlight.get(cacheKey);
     if (existing) return existing;
 
-    const request = this.fetchFromSource({ vs, ids, cacheKey });
+    const request = this.fetchFromProvider({ provider, symbols, vs, cacheKey });
 
     this.inFlight.set(cacheKey, request);
     try {
@@ -67,7 +80,7 @@ export class MarketDataService {
     }
   }
 
-  /** Tìm một coin theo symbol trong bộ dữ liệu thị trường mặc định. */
+  /** Tìm một coin theo symbol trong bộ dữ liệu thị trường mặc định (crypto). */
   async findBySymbol(symbol: string, vs: 'vnd' | 'usd' = 'vnd'): Promise<MarketCoinDto | null> {
     const wanted = symbol.trim().toUpperCase();
     if (wanted.length === 0) return null;
@@ -76,46 +89,56 @@ export class MarketDataService {
     return coins.find((coin) => coin.symbol.toUpperCase() === wanted) ?? null;
   }
 
-  private async fetchFromSource(input: {
+  private resolveProvider(assetClass: AssetClass): MarketDataProvider {
+    const provider = this.providers.get(assetClass);
+    if (!provider) {
+      throw new BadRequestException(
+        `assetClass '${assetClass}' chưa được hỗ trợ. Hiện có: ${this.supportedAssetClasses().join(', ') || 'không có provider nào'}`,
+      );
+    }
+    return provider;
+  }
+
+  private resolveSymbols(assetClass: AssetClass, params: GetMarketsParams): string {
+    if (assetClass === DEFAULT_ASSET_CLASS) {
+      if (params.symbols) {
+        throw new BadRequestException(
+          "assetClass 'crypto' nhận 'ids' (CoinGecko id), không nhận 'symbols'",
+        );
+      }
+      return params.ids ?? this.defaultCryptoIds();
+    }
+
+    if (params.ids) {
+      throw new BadRequestException(
+        `'ids' chỉ dùng cho assetClass 'crypto'. Với '${assetClass}' hãy dùng 'symbols'`,
+      );
+    }
+
+    const symbols = params.symbols?.trim() ?? '';
+    if (symbols.length === 0) {
+      throw new BadRequestException(`assetClass '${assetClass}' yêu cầu tham số 'symbols'`);
+    }
+    return symbols;
+  }
+
+  /** Bộ id mặc định của crypto: cấu hình `MARKET_COIN_IDS` của provider crypto. */
+  private defaultCryptoIds(): string {
+    return this.providers.get(DEFAULT_ASSET_CLASS)?.defaultSymbols?.() ?? '';
+  }
+
+  private async fetchFromProvider(input: {
+    provider: MarketDataProvider;
+    symbols: string;
     vs: 'vnd' | 'usd';
-    ids: string;
     cacheKey: string;
   }): Promise<MarketFetchResult> {
-    const { vs, ids, cacheKey } = input;
-    const timeoutMs = Number(this.config.get<string>('MARKET_FETCH_TIMEOUT_MS') ?? 8_000);
-    const apiKey = this.config.get<string>('MARKET_API_KEY');
-    const apiBase = this.config.get<string>('MARKET_API_BASE') ?? DEFAULT_API_BASE;
-
-    const query = new URLSearchParams({
-      vs_currency: vs,
-      ids,
-      order: 'market_cap_desc',
-      sparkline: 'true',
-      price_change_percentage: '24h',
-    });
+    const { provider, symbols, vs, cacheKey } = input;
 
     try {
-      const response = await fetch(`${apiBase}/coins/markets?${query.toString()}`, {
-        signal: AbortSignal.timeout(timeoutMs),
-        headers: {
-          Accept: 'application/json',
-          ...(apiKey ? { 'x-cg-demo-api-key': apiKey } : {}),
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`CoinGecko HTTP ${response.status} (vs=${vs})`);
-      }
-
-      const raw = (await response.json()) as CoinGeckoMarketResponse[];
-      const currency = vs.toUpperCase();
-      const coins = raw.map((entry) => this.toMarketCoin(entry, currency));
-      const updatedAt = raw[0]?.last_updated ?? new Date().toISOString();
-
-      this.cache.set(cacheKey, { coins, fetchedAt: Date.now() });
-      this.logger.debug(`Làm mới dữ liệu thị trường: ${coins.length} coin, vs=${vs}`);
-
-      return { coins, source: 'coingecko', cached: false, updatedAt };
+      const result = await provider.fetch({ symbols, vs });
+      this.cache.set(cacheKey, { coins: result.coins, fetchedAt: Date.now() });
+      return result;
     } catch (error) {
       const fallback = this.cache.get(cacheKey);
       const message = error instanceof Error ? error.message : String(error);
@@ -134,37 +157,7 @@ export class MarketDataService {
       throw new ServiceUnavailableException('Dữ liệu thị trường hiện không khả dụng');
     }
   }
-
-  private toMarketCoin(raw: CoinGeckoMarketResponse, currency: string): MarketCoinDto {
-    const coin = new MarketCoinDto();
-    coin.id = raw.id;
-    coin.symbol = (raw.symbol ?? '').toUpperCase();
-    coin.name = raw.name ?? '';
-    coin.image = raw.image || null;
-    coin.price = raw.current_price ?? 0;
-    coin.currency = currency;
-    coin.change24h = raw.price_change_percentage_24h ?? 0;
-    coin.volume24h = raw.total_volume ?? null;
-    coin.marketCap = raw.market_cap ?? null;
-    coin.sparkline = this.toSparkline(raw.sparkline_in_7d?.price, coin.price);
-    coin.updatedAt = raw.last_updated ?? new Date().toISOString();
-    coin.stale = false;
-    return coin;
-  }
-
-  /**
-   * CoinGecko trả `sparkline_in_7d.price` theo USD bất kể `vs_currency`, nên với
-   * `vs=vnd` chuỗi này lệch đơn vị so với `price`. Chuẩn hoá tuyến tính để điểm
-   * cuối bằng giá hiện tại: giữ nguyên hình dạng xu hướng và đúng đơn vị tiền tệ.
-   */
-  private toSparkline(values: number[] | undefined, currentPrice: number): number[] {
-    if (!values || values.length === 0) return [];
-    if (!Number.isFinite(currentPrice) || currentPrice <= 0) return values;
-
-    const last = values[values.length - 1];
-    if (!Number.isFinite(last) || last <= 0 || last === currentPrice) return values;
-
-    const scale = currentPrice / last;
-    return values.map((value) => value * scale);
-  }
 }
+
+export { ASSET_CLASSES, DEFAULT_ASSET_CLASS };
+export type { AssetClass };
